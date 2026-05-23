@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Devriye Takip</title>
+  <script src="https://unpkg.com/html5-qrcode"></script>
+</head>
+<body>
+  <h2>Devriye Noktası Tarama</h2>
+  <p id="uyari">Uyarı yükleniyor...</p>
+  <div id="reader" style="width:300px; margin:auto;"></div>
+  <p id="sonuc"></p>
+  
+  <input type="text" id="emailInput" placeholder="E-posta adresinizi girin" style="width:90%; padding:10px; margin-bottom:10px;">
+  <button onclick="kullaniciGirisi()" id="girisBtn">Giriş Yap</button>
+
+  <script>
+    // AYARLAR (SENİN WEB APP URL'İN)
+    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyL0Zncu8evQMS7wG0cnEXSyfsBt0M2nhCSSfGnUAPjaPbpNkmLoUOChVY22haRNOV4oA/exec";
+    const UYARI_URL = APPS_SCRIPT_URL; // doGet aynı URL'de
+    let kullaniciEmail = "";
+
+    // Uyarıyı çek
+    fetch(UYARI_URL)
+      .then(r => r.json())
+      .then(d => {
+        if (d.uyari) document.getElementById("uyari").innerText = "⚠️ " + d.uyari;
+        else document.getElementById("uyari").innerText = "";
+      });
+
+    function kullaniciGirisi() {
+      kullaniciEmail = document.getElementById("emailInput").value.trim();
+      if (kullaniciEmail) {
+        document.getElementById("emailInput").style.display = "none";
+        document.getElementById("girisBtn").style.display = "none";
+        document.getElementById("reader").style.display = "block";
+        startScanner();
+      } else {
+        alert("Lütfen e-posta adresinizi girin.");
+      }
+    }
+
+    function startScanner() {
+      const html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 });
+      html5QrcodeScanner.render(onScanSuccess);
+    }
+
+    function onScanSuccess(decodedText) {
+      if (!kullaniciEmail) return;
+      navigator.geolocation.getCurrentPosition(pos => {
+        const data = {
+          qrMetin: decodedText,
+          enlem: pos.coords.latitude,
+          boylam: pos.coords.longitude,
+          email: kullaniciEmail
+        };
+        fetch(APPS_SCRIPT_URL, {
+          method: 'POST',
+          body: JSON.stringify(data)
+        })
+        .then(() => {
+          document.getElementById("sonuc").innerText = "✅ Kaydedildi: " + decodedText;
+          setTimeout(() => document.getElementById("sonuc").innerText = "", 3000);
+        })
+        .catch(() => {
+          document.getElementById("sonuc").innerText = "Hata!";
+        });
+      }, err => {
+        document.getElementById("sonuc").innerText = "Konum alınamadı.";
+      });
+    }
+  </script>
+</body>
+</html>
