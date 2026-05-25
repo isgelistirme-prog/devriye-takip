@@ -123,10 +123,11 @@
 
   <script>
     const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyL0Zncu8evQMS7wG0cnEXSyfsBt0M2nhCSSfGnUAPjaPbpNkmLoUOChVY22haRNOV4oA/exec";
-    const CHECK_USER_URL = APPS_SCRIPT_URL + "?action=checkUser&email="; // sadece email
+    const CHECK_USER_URL = APPS_SCRIPT_URL + "?action=checkUser&email=";
     const UYARI_URL = APPS_SCRIPT_URL + "?action=uyari";
     
     let kullaniciEmail = "";
+    let html5QrScanner = null;
 
     function handleCredentialResponse(response) {
       const userObject = parseJwt(response.credential);
@@ -134,7 +135,10 @@
       const adSoyad = userObject.name || kullaniciEmail;
       
       fetch(CHECK_USER_URL + encodeURIComponent(kullaniciEmail))
-        .then(r => r.json())
+        .then(r => {
+          if (!r.ok) throw new Error("HTTP " + r.status);
+          return r.json();
+        })
         .then(data => {
           if (data.authorized) {
             document.getElementById("app").style.display = "block";
@@ -153,7 +157,7 @@
           }
         })
         .catch(err => {
-          alert("Bağlantı hatası. Lütfen sayfayı yenileyip tekrar deneyin.");
+          alert("Bağlantı hatası. Lütfen sayfayı yenileyin. Hata: " + err.message);
           console.error(err);
         });
     }
@@ -177,7 +181,6 @@
         .catch(() => {});
     }
 
-    // Tarama işlemleri aynı...
     document.getElementById("startScanBtn").addEventListener("click", startScan);
     document.getElementById("stopScanBtn").addEventListener("click", stopScan);
 
