@@ -1,52 +1,235 @@
 <!DOCTYPE html>
-<html>
+<html lang="tr">
 <head>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Devriye Takip</title>
+  
+  <!-- Stil -->
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f0f2f5;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      padding: 16px;
+    }
+    .container {
+      width: 100%;
+      max-width: 420px;
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+      padding: 24px 20px;
+      transition: all 0.2s;
+    }
+    .logo {
+      text-align: center;
+      margin-bottom: 24px;
+      font-size: 24px;
+      font-weight: 600;
+      color: #1a73e8;
+      letter-spacing: -0.5px;
+    }
+    .warning {
+      background: #fff3cd;
+      border-left: 5px solid #ffc107;
+      padding: 14px 16px;
+      border-radius: 8px;
+      margin: 16px 0;
+      font-size: 14px;
+      color: #856404;
+      display: none;
+      animation: fadeIn 0.3s;
+    }
+    .warning.active { display: block; }
+    .user-badge {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: #f8f9fa;
+      padding: 12px;
+      border-radius: 12px;
+      margin-bottom: 20px;
+      font-size: 14px;
+      color: #333;
+    }
+    .user-avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: #1a73e8;
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      font-size: 16px;
+    }
+    #reader {
+      width: 100%;
+      margin: 16px auto;
+      border-radius: 12px;
+      overflow: hidden;
+      display: none;
+    }
+    .btn {
+      width: 100%;
+      padding: 14px;
+      font-size: 16px;
+      font-weight: 500;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      margin-bottom: 8px;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .btn-primary { background: #1a73e8; color: white; }
+    .btn-primary:active { background: #1557b0; }
+    .btn-danger { background: #d93025; color: white; }
+    .btn-danger:active { background: #b71c1c; }
+    .btn-outline { background: #e8eaed; color: #333; }
+    .btn:disabled { opacity: 0.6; pointer-events: none; }
+    #sonuc {
+      text-align: center;
+      margin-top: 8px;
+      font-weight: 500;
+      min-height: 24px;
+    }
+    .success { color: #0d904f; }
+    .error { color: #d93025; }
+    hr { border: none; border-top: 1px solid #eee; margin: 16px 0; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+  </style>
+  
+  <!-- Kütüphaneler -->
   <script src="https://unpkg.com/html5-qrcode"></script>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
-  <h2>Devriye Noktası Tarama</h2>
-  <p id="uyari">Uyarı yükleniyor...</p>
-  <div id="reader" style="width:300px; margin:auto;"></div>
-  <p id="sonuc"></p>
-  
-  <input type="text" id="emailInput" placeholder="E-posta adresinizi girin" style="width:90%; padding:10px; margin-bottom:10px;">
-  <button onclick="kullaniciGirisi()" id="girisBtn">Giriş Yap</button>
+  <div class="container">
+    <div class="logo">🔒 Devriye Takip</div>
+    
+    <!-- Google Sign-In -->
+    <div id="g_id_onload"
+         data-client_id="653251016114-4340l82dqeldg25umf3749gr9b4aj8gn.apps.googleusercontent.com"
+         data-callback="handleCredentialResponse"
+         data-auto_prompt="false">
+    </div>
+    <div class="g_id_signin" data-type="standard" data-size="large" data-theme="outline" data-text="sign_in_with" data-shape="rectangular" data-logo_alignment="left"></div>
+    
+    <!-- Uygulama içeriği (giriş sonrası görünür) -->
+    <div id="app" style="display:none;">
+      <div class="user-badge" id="userBadge"></div>
+      <div class="warning" id="warningBox"></div>
+      
+      <button class="btn btn-primary" id="startScanBtn">📷 Noktayı Okut</button>
+      <button class="btn btn-danger" id="stopScanBtn" style="display:none;">⏹️ Taramayı Durdur</button>
+      <div id="reader"></div>
+      <div id="sonuc"></div>
+      
+      <hr>
+      <button class="btn btn-outline" id="signoutBtn">Çıkış Yap</button>
+    </div>
+  </div>
 
   <script>
-    // AYARLAR (SENİN WEB APP URL'İN)
+    // ================== YAPILANDIRMA ==================
     const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyL0Zncu8evQMS7wG0cnEXSyfsBt0M2nhCSSfGnUAPjaPbpNkmLoUOChVY22haRNOV4oA/exec";
-    const UYARI_URL = APPS_SCRIPT_URL; // doGet aynı URL'de
+    const KULLANICI_KONTROL_URL = APPS_SCRIPT_URL + "?action=checkUser&email=";
+    const UYARI_URL = APPS_SCRIPT_URL + "?action=uyari";
+    
     let kullaniciEmail = "";
+    let html5QrScanner = null;
 
-    // Uyarıyı çek
-    fetch(UYARI_URL)
-      .then(r => r.json())
-      .then(d => {
-        if (d.uyari) document.getElementById("uyari").innerText = "⚠️ " + d.uyari;
-        else document.getElementById("uyari").innerText = "";
-      });
-
-    function kullaniciGirisi() {
-      kullaniciEmail = document.getElementById("emailInput").value.trim();
-      if (kullaniciEmail) {
-        document.getElementById("emailInput").style.display = "none";
-        document.getElementById("girisBtn").style.display = "none";
-        document.getElementById("reader").style.display = "block";
-        startScanner();
-      } else {
-        alert("Lütfen e-posta adresinizi girin.");
-      }
+    // ================== GOOGLE GİRİŞ ==================
+    function handleCredentialResponse(response) {
+      const userObject = parseJwt(response.credential);
+      kullaniciEmail = userObject.email;
+      
+      // Yetkili mi?
+      fetch(KULLANICI_KONTROL_URL + encodeURIComponent(kullaniciEmail))
+        .then(r => r.json())
+        .then(data => {
+          if (data.authorized) {
+            document.getElementById("app").style.display = "block";
+            document.querySelector(".g_id_signin").style.display = "none";
+            document.getElementById("userBadge").innerHTML = 
+              `<div class="user-avatar">${data.adSoyad.charAt(0).toUpperCase()}</div>
+               <div><strong>${data.adSoyad}</strong><br><small>${kullaniciEmail}</small></div>`;
+            uyariYukle();
+          } else {
+            alert("Bu e-posta adresiyle giriş yetkiniz yok. Yöneticinize başvurun.");
+            google.accounts.id.disableAutoSelect();
+            location.reload();
+          }
+        })
+        .catch(() => {
+          alert("Yetki kontrolü yapılamadı. Lütfen tekrar deneyin.");
+        });
     }
 
-    function startScanner() {
-      const html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 });
-      html5QrcodeScanner.render(onScanSuccess);
+    function parseJwt(token) {
+      const base64Url = token.split('.')[1];
+      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+      return JSON.parse(decodeURIComponent(escape(window.atob(base64))));
+    }
+
+    // ================== UYARI MESAJI ==================
+    function uyariYukle() {
+      fetch(UYARI_URL)
+        .then(r => r.json())
+        .then(d => {
+          if (d.uyari) {
+            const box = document.getElementById("warningBox");
+            box.innerText = "⚠️ " + d.uyari;
+            box.classList.add("active");
+          }
+        })
+        .catch(() => {});
+    }
+
+    // ================== TARAMA KONTROLÜ ==================
+    document.getElementById("startScanBtn").addEventListener("click", startScan);
+    document.getElementById("stopScanBtn").addEventListener("click", stopScan);
+
+    function startScan() {
+      document.getElementById("reader").style.display = "block";
+      document.getElementById("startScanBtn").style.display = "none";
+      document.getElementById("stopScanBtn").style.display = "block";
+      
+      html5QrScanner = new Html5Qrcode("reader");
+      html5QrScanner.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: { width: 250, height: 250 } },
+        onScanSuccess,
+        onScanFailure
+      ).catch(err => {
+        alert("Kamera başlatılamadı: " + err);
+        stopScan();
+      });
+    }
+
+    function stopScan() {
+      if (html5QrScanner) {
+        html5QrScanner.stop().then(() => {
+          document.getElementById("reader").style.display = "none";
+          document.getElementById("startScanBtn").style.display = "block";
+          document.getElementById("stopScanBtn").style.display = "none";
+        }).catch(() => {});
+      }
     }
 
     function onScanSuccess(decodedText) {
       if (!kullaniciEmail) return;
+      
       navigator.geolocation.getCurrentPosition(pos => {
         const data = {
           qrMetin: decodedText,
@@ -54,21 +237,41 @@
           boylam: pos.coords.longitude,
           email: kullaniciEmail
         };
+        
         fetch(APPS_SCRIPT_URL, {
           method: 'POST',
           body: JSON.stringify(data)
         })
-        .then(() => {
-          document.getElementById("sonuc").innerText = "✅ Kaydedildi: " + decodedText;
-          setTimeout(() => document.getElementById("sonuc").innerText = "", 3000);
+        .then(response => {
+          if (response.ok) {
+            document.getElementById("sonuc").innerHTML = 
+              '<span class="success">✅ Kaydedildi: ' + decodedText + '</span>';
+            setTimeout(() => document.getElementById("sonuc").innerHTML = "", 2500);
+            // Otomatik durdur ve tekrar taramaya hazırla
+            stopScan();
+          } else {
+            throw new Error("Kayıt başarısız");
+          }
         })
         .catch(() => {
-          document.getElementById("sonuc").innerText = "Hata!";
+          document.getElementById("sonuc").innerHTML = 
+            '<span class="error">❌ Hata oluştu, lütfen tekrar deneyin.</span>';
         });
       }, err => {
-        document.getElementById("sonuc").innerText = "Konum alınamadı.";
+        document.getElementById("sonuc").innerHTML = 
+          '<span class="error">📍 Konum alınamadı. Lütfen GPS iznini verin.</span>';
       });
     }
+
+    function onScanFailure(error) {
+      // Tarama hatalarını sessizce geç
+    }
+
+    // ================== ÇIKIŞ ==================
+    document.getElementById("signoutBtn").addEventListener("click", () => {
+      google.accounts.id.disableAutoSelect();
+      location.reload();
+    });
   </script>
 </body>
 </html>
