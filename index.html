@@ -4,8 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Devriye Takip</title>
-  
-  <!-- Stil -->
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -43,7 +41,6 @@
       font-size: 14px;
       color: #856404;
       display: none;
-      animation: fadeIn 0.3s;
     }
     .warning.active { display: block; }
     .user-badge {
@@ -106,10 +103,7 @@
     .success { color: #0d904f; }
     .error { color: #d93025; }
     hr { border: none; border-top: 1px solid #eee; margin: 16px 0; }
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
   </style>
-  
-  <!-- Kütüphaneler -->
   <script src="https://unpkg.com/html5-qrcode"></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
@@ -143,37 +137,29 @@
   <script>
     // ================== YAPILANDIRMA ==================
     const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyL0Zncu8evQMS7wG0cnEXSyfsBt0M2nhCSSfGnUAPjaPbpNkmLoUOChVY22haRNOV4oA/exec";
-    const KULLANICI_KONTROL_URL = APPS_SCRIPT_URL + "?action=checkUser&email=";
-    const UYARI_URL = APPS_SCRIPT_URL + "?action=uyari";
+    const UYARI_URL = APPS_SCRIPT_URL + "?action=uyari"; // Uyarıyı almak için (basit)
     
     let kullaniciEmail = "";
     let html5QrScanner = null;
 
-    // ================== GOOGLE GİRİŞ ==================
+    // ================== GOOGLE GİRİŞ (HERKESE AÇIK) ==================
     function handleCredentialResponse(response) {
       const userObject = parseJwt(response.credential);
       kullaniciEmail = userObject.email;
+      const adSoyad = userObject.name || kullaniciEmail; // Google profil adını al, yoksa e-posta
+
+      // Doğrudan uygulamayı aç, yetki kontrolü YOK
+      document.getElementById("app").style.display = "block";
+      document.querySelector(".g_id_signin").style.display = "none";
       
-      // Yetkili mi?
-      fetch(KULLANICI_KONTROL_URL + encodeURIComponent(kullaniciEmail))
-        .then(r => r.json())
-        .then(data => {
-          if (data.authorized) {
-            document.getElementById("app").style.display = "block";
-            document.querySelector(".g_id_signin").style.display = "none";
-            document.getElementById("userBadge").innerHTML = 
-              `<div class="user-avatar">${data.adSoyad.charAt(0).toUpperCase()}</div>
-               <div><strong>${data.adSoyad}</strong><br><small>${kullaniciEmail}</small></div>`;
-            uyariYukle();
-          } else {
-            alert("Bu e-posta adresiyle giriş yetkiniz yok. Yöneticinize başvurun.");
-            google.accounts.id.disableAutoSelect();
-            location.reload();
-          }
-        })
-        .catch(() => {
-          alert("Yetki kontrolü yapılamadı. Lütfen tekrar deneyin.");
-        });
+      // Kullanıcı bilgisi göster
+      const basHarf = adSoyad.charAt(0).toUpperCase();
+      document.getElementById("userBadge").innerHTML = 
+        `<div class="user-avatar">${basHarf}</div>
+         <div><strong>${adSoyad}</strong><br><small>${kullaniciEmail}</small></div>`;
+      
+      // Uyarı mesajını yükle (basit fetch)
+      uyariYukle();
     }
 
     function parseJwt(token) {
@@ -182,18 +168,21 @@
       return JSON.parse(decodeURIComponent(escape(window.atob(base64))));
     }
 
-    // ================== UYARI MESAJI ==================
+    // ================== UYARI MESAJI (SADECE BİR DENEME, HATA OLURSA BOŞ GEÇ) ==================
     function uyariYukle() {
       fetch(UYARI_URL)
         .then(r => r.json())
         .then(d => {
-          if (d.uyari) {
+          if (d && d.uyari) {
             const box = document.getElementById("warningBox");
             box.innerText = "⚠️ " + d.uyari;
             box.classList.add("active");
           }
         })
-        .catch(() => {});
+        .catch(() => {
+          // Uyarı alınamazsa sessiz kal, uygulama çalışmaya devam eder
+          console.log("Uyarı mesajı alınamadı, boş bırakılıyor.");
+        });
     }
 
     // ================== TARAMA KONTROLÜ ==================
@@ -247,7 +236,6 @@
             document.getElementById("sonuc").innerHTML = 
               '<span class="success">✅ Kaydedildi: ' + decodedText + '</span>';
             setTimeout(() => document.getElementById("sonuc").innerHTML = "", 2500);
-            // Otomatik durdur ve tekrar taramaya hazırla
             stopScan();
           } else {
             throw new Error("Kayıt başarısız");
@@ -264,7 +252,7 @@
     }
 
     function onScanFailure(error) {
-      // Tarama hatalarını sessizce geç
+      // Sessiz kal
     }
 
     // ================== ÇIKIŞ ==================
