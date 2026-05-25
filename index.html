@@ -32,12 +32,10 @@
     }
     .hidden { display: none !important; }
 
-    /* Giriş Ekranı */
     .logo-icon { font-size: 60px; margin-bottom: 10px; }
     h2 { color: #1a2a6c; margin-bottom: 5px; font-size: 24px; }
     .subtitle { color: #666; margin-bottom: 25px; font-size: 14px; }
 
-    /* Ana Ekran */
     .user-info {
       display: flex;
       align-items: center;
@@ -76,7 +74,6 @@
       color: #2e7d32;
     }
 
-    /* Uyarı Kutusu */
     #warningBox {
       background: #fff3cd;
       border-left: 6px solid #ffc107;
@@ -88,7 +85,6 @@
     #warningBox strong { display: block; margin-bottom: 5px; color: #856404; }
     #warningText { color: #856404; font-size: 14px; line-height: 1.5; }
 
-    /* Butonlar */
     .btn {
       display: inline-block;
       width: 100%;
@@ -107,7 +103,6 @@
     .btn-warning { background: #ffc107; color: #333; }
     .btn-outline { background: transparent; border: 2px solid #1a2a6c; color: #1a2a6c; }
 
-    /* Engelli Ekranı */
     .blocked-icon { font-size: 70px; margin-bottom: 15px; }
   </style>
 </head>
@@ -122,8 +117,8 @@
       <div id="g_id_onload"
            data-client_id="653251016114-4340l82dqeldg25umf3749gr9b4aj8gn.apps.googleusercontent.com"
            data-callback="handleCredentialResponse"
-           data-auto_select="true"
-           data-prompt="none">
+           data-auto_select="false"
+           data-prompt="select_account">
       </div>
       <div class="g_id_signin" data-type="standard" data-size="large" data-theme="outline" data-text="sign_in_with" data-shape="rectangular" data-width="300"></div>
       <p style="margin-top:15px; font-size:12px; color:#999;">İlk girişte hesabınız otomatik kaydedilir.</p>
@@ -131,7 +126,6 @@
 
     <!-- ==================== ANA EKRAN ==================== -->
     <div id="mainScreen" class="hidden">
-      <!-- Kullanıcı Bilgisi -->
       <div class="user-info">
         <div class="user-avatar" id="userInitial">?</div>
         <div>
@@ -140,14 +134,12 @@
         </div>
       </div>
 
-      <!-- Uyarı Kutusu -->
       <div id="warningBox" class="hidden">
         <strong>⚠️ Yönetici Uyarısı</strong>
         <p id="warningText"></p>
         <button class="btn btn-warning" id="warningOkBtn" style="margin-top:15px;">Okudum, Devam Et</button>
       </div>
 
-      <!-- QR Tarama Alanı -->
       <h2>📷 Noktayı Okut</h2>
       <div id="reader"></div>
       <p id="scanResult"></p>
@@ -171,44 +163,47 @@
   </div>
 
   <script>
-    // ==================== SABİTLER ====================
     const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyL0Zncu8evQMS7wG0cnEXSyfsBt0M2nhCSSfGnUAPjaPbpNkmLoUOChVY22haRNOV4oA/exec';
     const CLIENT_ID = '653251016114-4340l82dqeldg25umf3749gr9b4aj8gn.apps.googleusercontent.com';
 
-    // ==================== DEĞİŞKENLER ====================
     let currentUser = null;
     let html5QrCode = null;
     let isScanning = false;
 
-    // ==================== SAYFA YÜKLENİNCE ====================
     window.onload = function () {
+      console.log('Sayfa yüklendi, Google Identity Services başlatılıyor...');
       google.accounts.id.initialize({
         client_id: CLIENT_ID,
         callback: handleCredentialResponse,
-        auto_select: true,
-        prompt: 'none'
+        auto_select: false,
+        prompt: 'select_account'
       });
 
-      // Sessiz oturum açmayı dene
+      // Kullanıcıya her zaman giriş butonunu göster (otomatik oturum deneme)
       google.accounts.id.prompt((notification) => {
+        console.log('Prompt notification:', notification);
         if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-          // Oturum yok → giriş ekranını göster
+          console.log('Oturum bulunamadı veya atlandı. Giriş ekranı gösteriliyor.');
           showScreen('loginScreen');
+        } else {
+          console.log('Oturum bilgisi geldi, handleCredentialResponse çağrılacak.');
         }
-        // Eğer credential dönerse handleCredentialResponse otomatik çağrılır
       });
     };
 
-    // ==================== GOOGLE KİMLİK İŞLEMLERİ ====================
     async function handleCredentialResponse(response) {
+      console.log('Google kimlik bilgisi alındı, doğrulanıyor...');
       const token = response.credential;
 
       try {
+        console.log('Apps Script\'e istek gönderiliyor...');
         const res = await fetch(SCRIPT_URL, {
           method: 'POST',
           body: JSON.stringify({ action: 'verifyUser', token: token })
         });
+        console.log('Yanıt alındı, durum kodu:', res.status);
         const data = await res.json();
+        console.log('Yanıt verisi:', data);
 
         if (data.status === 'active') {
           currentUser = {
@@ -232,21 +227,16 @@
     }
 
     function onLoginSuccess() {
-      // Kullanıcı bilgilerini ekrana yaz
+      console.log('Giriş başarılı! Kullanıcı:', currentUser);
       document.getElementById('displayName').textContent = currentUser.name || currentUser.email;
       document.getElementById('displayEmail').textContent = currentUser.email;
       document.getElementById('userInitial').textContent = currentUser.initial;
 
       showScreen('mainScreen');
-
-      // Uyarı mesajını kontrol et
       checkWarningMessage();
-
-      // QR tarayıcıyı başlat
       startScanner();
     }
 
-    // ==================== UYARI MESAJI ====================
     async function checkWarningMessage() {
       try {
         const res = await fetch(SCRIPT_URL, {
@@ -258,14 +248,12 @@
         if (data.warning) {
           document.getElementById('warningText').textContent = data.warning;
           document.getElementById('warningBox').classList.remove('hidden');
-          // Tarayıcıyı durdur, uyarıyı okusun
           stopScanner();
         } else {
           document.getElementById('warningBox').classList.add('hidden');
         }
       } catch (e) {
         console.error('Uyarı alınamadı:', e);
-        // Uyarı alınamazsa sessizce devam et
       }
     }
 
@@ -274,19 +262,14 @@
       startScanner();
     });
 
-    // ==================== QR TARAMA ====================
     function startScanner() {
       if (isScanning) return;
-
       document.getElementById('reader').innerHTML = '';
       html5QrCode = new Html5Qrcode("reader");
 
       html5QrCode.start(
         { facingMode: "environment" },
-        {
-          fps: 10,
-          qrbox: { width: 250, height: 250 }
-        },
+        { fps: 10, qrbox: { width: 250, height: 250 } },
         onScanSuccess,
         onScanFailure
       ).then(() => {
@@ -314,9 +297,7 @@
     });
 
     function onScanSuccess(decodedText) {
-      // Aynı QR'ı peş peşe okumayı engelle
       stopScanner();
-
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
           (position) => {
@@ -332,13 +313,10 @@
       }
     }
 
-    function onScanFailure() {
-      // Başarısız okuma denemelerini sessizce geç
-    }
+    function onScanFailure() {}
 
     async function sendScanData(qrText, lat, lng) {
       document.getElementById('scanResult').textContent = '⏳ Kaydediliyor...';
-
       try {
         const payload = {
           action: 'saveScan',
@@ -349,24 +327,15 @@
           name: currentUser ? currentUser.name : '',
           timestamp: new Date().toISOString()
         };
-
-        await fetch(SCRIPT_URL, {
-          method: 'POST',
-          body: JSON.stringify(payload)
-        });
-
+        await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
         document.getElementById('scanResult').innerHTML = `✅ <b>${qrText}</b> başarıyla kaydedildi.`;
-
-        // 2 saniye sonra tekrar taramaya başla
         setTimeout(() => {
           document.getElementById('scanResult').textContent = '';
           startScanner();
         }, 2000);
-
       } catch (e) {
         console.error('Kayıt hatası:', e);
         document.getElementById('scanResult').innerHTML = '❌ Kayıt başarısız. Lütfen tekrar deneyin.';
-        // Hata durumunda da tarayıcıyı yeniden başlat
         setTimeout(() => {
           document.getElementById('scanResult').textContent = '';
           startScanner();
@@ -374,7 +343,6 @@
       }
     }
 
-    // ==================== ÇIKIŞ ====================
     document.getElementById('logoutBtn').addEventListener('click', () => {
       google.accounts.id.disableAutoSelect();
       stopScanner();
@@ -382,7 +350,6 @@
       showScreen('loginScreen');
     });
 
-    // ==================== YARDIMCI FONKSİYONLAR ====================
     function showScreen(screenId) {
       document.getElementById('loginScreen').classList.add('hidden');
       document.getElementById('mainScreen').classList.add('hidden');
