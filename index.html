@@ -9,7 +9,6 @@
   <script src="https://unpkg.com/html5-qrcode"></script>
 
   <style>
-    /* ==================== GENEL STİLLER ==================== */
     * { margin: 0; padding: 0; box-sizing: border-box; }
     
     body {
@@ -37,7 +36,6 @@
     h2 { color: #1a2a6c; margin-bottom: 5px; font-size: 24px; }
     .subtitle { color: #666; margin-bottom: 25px; font-size: 14px; }
 
-    /* ==================== KULLANICI BİLGİ KARTI ==================== */
     .user-info {
       display: flex;
       align-items: center;
@@ -64,7 +62,6 @@
     .user-name { font-weight: 600; color: #1a2a6c; font-size: 15px; }
     .user-email { font-size: 12px; color: #666; }
 
-    /* ==================== KAMERA VE SONUÇ ALANI ==================== */
     #reader {
       width: 100%;
       border-radius: 16px;
@@ -79,10 +76,8 @@
       margin: 15px 0;
       min-height: 30px;
       color: #2e7d32;
-      transition: all 0.3s ease;
     }
 
-    /* ==================== UYARI KUTUSU ==================== */
     #warningBox {
       background: #fff3cd;
       border-left: 6px solid #ffc107;
@@ -90,12 +85,10 @@
       padding: 15px;
       margin-bottom: 20px;
       text-align: left;
-      box-shadow: 0 4px 6px rgba(0,0,0,0.05);
     }
     #warningBox strong { display: block; margin-bottom: 8px; color: #856404; font-size: 15px; }
     #warningText { color: #856404; font-size: 14px; line-height: 1.5; }
 
-    /* ==================== BUTONLAR ==================== */
     .btn {
       display: inline-block;
       width: 100%;
@@ -110,9 +103,7 @@
     }
     .btn:active { transform: scale(0.98); }
     .btn-warning { background: #ffc107; color: #333; }
-    .btn-warning:hover { background: #e0a800; }
     .btn-danger { background: #dc3545; color: white; }
-    .btn-danger:hover { background: #c82333; }
     .btn-outline { background: transparent; border: 2px solid #1a2a6c; color: #1a2a6c; }
     .btn-outline:hover { background: #f0f4ff; }
 
@@ -126,18 +117,16 @@
       <div class="logo-icon">🔒</div>
       <h2>Devriye Takip</h2>
       <p class="subtitle">Sisteme erişmek için Google hesabınızla giriş yapın</p>
-      
       <div id="g_id_signin" style="display: flex; justify-content: center; margin-top: 20px;"></div>
       <p style="margin-top:20px; font-size:12px; color:#888;">İlk girişinizde hesabınız sisteme otomatik olarak kaydedilecektir.</p>
     </div>
 
     <div id="mainScreen" class="hidden">
-      
       <div class="user-info">
         <div class="user-avatar" id="userInitial">?</div>
         <div class="user-details">
           <div class="user-name" id="displayName">Yükleniyor...</div>
-          <div class="user-email" id="displayEmail">bekleniyor@mail.com</div>
+          <div class="user-email" id="displayEmail">...</div>
         </div>
       </div>
 
@@ -151,7 +140,7 @@
       <div id="reader"></div>
       <p id="scanResult">Kamera bekleniyor...</p>
 
-      <button class="btn btn-outline" id="stopScanBtn">⏹️ Taramayı Durdur / Yeniden Başlat</button>
+      <button class="btn btn-outline" id="stopScanBtn">⏹️ Taramayı Durdur / Başlat</button>
       <button class="btn btn-danger" id="logoutBtn">🚪 Çıkış Yap</button>
     </div>
 
@@ -159,22 +148,29 @@
       <div class="blocked-icon">⛔</div>
       <h2>Giriş Engellendi</h2>
       <p style="color:#666; margin:15px 0; line-height: 1.5;">Hesabınız yönetici tarafından devre dışı bırakılmıştır.<br>Lütfen sistem yöneticinizle iletişime geçin.</p>
-      <button class="btn btn-outline" onclick="location.reload()">Giriş Ekranına Dön</button>
     </div>
 
   </div>
 
   <script>
-    // ==================== YAPILANDIRMA AYARLARI ====================
     const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyXnLMCDiqyPHkM36MiLKo43SWCEeJTeMoKr_ZxHxA3SI_i71JyAuQciTDCpIr6DU9mUQ/exec';
     const CLIENT_ID = '653251016114-4340l82dqeldg25umf3749gr9b4aj8gn.apps.googleusercontent.com';
     
-    // Uygulama Durumu
     let currentUser = null;
     let html5QrCode = null;
     let isScanning = false;
 
-    // ==================== GOOGLE GİRİŞ (GIS) İŞLEMLERİ ====================
+    // OTOMATİK GİRİŞ KONTROLÜ (Beni Hatırla)
+    window.onload = () => {
+      const savedUser = localStorage.getItem('devriye_user');
+      if (savedUser) {
+        currentUser = JSON.parse(savedUser);
+        onLoginSuccess();
+      } else {
+        initializeGIS();
+      }
+    };
+
     function initializeGIS() {
       google.accounts.id.initialize({
         client_id: CLIENT_ID,
@@ -182,14 +178,11 @@
         auto_select: false,
         prompt: 'select_account'
       });
-      
       google.accounts.id.renderButton(
         document.getElementById('g_id_signin'),
         { theme: 'outline', size: 'large', type: 'standard', text: 'sign_in_with', shape: 'rectangular', width: 280 }
       );
     }
-
-    window.onload = initializeGIS;
 
     async function handleCredentialResponse(response) {
       const token = response.credential;
@@ -198,10 +191,9 @@
       try {
         const res = await fetch(SCRIPT_URL, {
           method: 'POST',
-          headers: { "Content-Type": "text/plain;charset=utf-8" }, // CORS Hatası çözümü
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
           body: JSON.stringify({ action: 'verifyUser', token: token })
         });
-        
         const data = await res.json();
 
         if (data.status === 'active') {
@@ -210,16 +202,18 @@
             name: data.name,
             initial: data.name ? data.name.charAt(0).toUpperCase() : '?'
           };
+          
+          // Cihaz hafızasına kaydet
+          localStorage.setItem('devriye_user', JSON.stringify(currentUser));
           onLoginSuccess();
         } else if (data.status === 'disabled') {
           showScreen('blockedScreen');
         } else {
-          alert('Doğrulama başarısız oldu: ' + (data.message || 'Bilinmeyen hata.'));
+          alert('Doğrulama başarısız.');
           location.reload();
         }
       } catch (error) {
-        console.error('Sunucu Bağlantı Hatası:', error);
-        alert('Sunucuya bağlanılamadı. Lütfen internet bağlantınızı kontrol edip sayfayı yenileyin.');
+        alert('Bağlantı hatası oluştu. Lütfen sayfayı yenileyin.');
         location.reload();
       }
     }
@@ -234,72 +228,54 @@
       startScanner();
     }
 
-    // ==================== SUNUCU İLETİŞİMİ (UYARI VE KAYIT) ====================
     async function checkWarningMessage() {
       try {
         const res = await fetch(SCRIPT_URL, {
           method: 'POST',
-          headers: { "Content-Type": "text/plain;charset=utf-8" }, // CORS Hatası çözümü eklendi
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
           body: JSON.stringify({ action: 'getWarning' })
         });
-        
         const data = await res.json();
-        
         if (data.warning) {
           document.getElementById('warningText').textContent = data.warning;
           document.getElementById('warningBox').classList.remove('hidden');
-          stopScanner(); // Uyarı varken kamerayı durdur
+          stopScanner();
         }
-      } catch (e) { 
-        console.error('Uyarı kontrolü sırasında hata oluştu:', e); 
-      }
+      } catch (e) { console.error(e); }
     }
 
     async function sendScanData(qrText, lat, lng) {
       document.getElementById('scanResult').innerHTML = '⏳ <i>Sunucuya iletiliyor...</i>';
-      
       try {
         await fetch(SCRIPT_URL, {
           method: 'POST',
-          headers: { "Content-Type": "text/plain;charset=utf-8" }, // CORS Hatası çözümü eklendi
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
           body: JSON.stringify({
             action: 'saveScan',
             qrText: qrText,
-            lat: lat, 
-            lng: lng,
+            lat: lat, lng: lng,
             email: currentUser?.email || '',
             name: currentUser?.name || '',
             timestamp: new Date().toISOString()
           })
         });
-        
         document.getElementById('scanResult').innerHTML = `✅ <b>${qrText}</b> başarıyla kaydedildi.`;
-        
-        // 2 saniye sonra yeni tarama için ekranı temizle ve kamerayı aç
         setTimeout(() => { 
           document.getElementById('scanResult').textContent = 'Yeni barkod bekleniyor...'; 
           startScanner(); 
         }, 2500);
-
       } catch (e) {
-        console.error('Kayıt Hatası:', e);
-        document.getElementById('scanResult').innerHTML = '❌ Kayıt işlemi başarısız oldu. Tekrar deneyin.';
-        setTimeout(() => { 
-          document.getElementById('scanResult').textContent = 'Kamera hazır...'; 
-          startScanner(); 
-        }, 3000);
+        document.getElementById('scanResult').innerHTML = '❌ Kayıt başarısız oldu.';
+        setTimeout(() => { startScanner(); }, 3000);
       }
     }
 
-    // ==================== KAMERA VE QR KONTROLLERİ ====================
     function startScanner() {
       if (isScanning) return;
-      
       document.getElementById('reader').innerHTML = '';
       html5QrCode = new Html5Qrcode("reader");
-      
       html5QrCode.start(
-        { facingMode: "environment" }, // Arka kamerayı zorla
+        { facingMode: "environment" },
         { fps: 10, qrbox: { width: 250, height: 250 } },
         onScanSuccess,
         onScanFailure
@@ -307,31 +283,23 @@
         isScanning = true; 
         document.getElementById('scanResult').textContent = 'Kamera aktif, barkod okutun.';
       }).catch(err => {
-        document.getElementById('scanResult').innerHTML = '❌ Kamera başlatılamadı. İzinleri kontrol edin.';
-        console.error("Kamera Hatası:", err);
+        document.getElementById('scanResult').innerHTML = '❌ Kamera başlatılamadı.';
       });
     }
 
     function stopScanner() {
       if (html5QrCode && isScanning) {
-        html5QrCode.stop().then(() => { 
-          isScanning = false; 
-          document.getElementById('scanResult').innerHTML = '⏸️ Tarama duraklatıldı.';
-        }).catch(err => console.error("Durdurma hatası:", err));
+        html5QrCode.stop().then(() => { isScanning = false; });
       }
     }
 
     function onScanSuccess(decodedText) {
-      stopScanner(); // Mükerrer okumayı engellemek için kamerayı durdur
+      stopScanner();
       document.getElementById('scanResult').textContent = '📍 Konum alınıyor...';
-      
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
           (pos) => sendScanData(decodedText, pos.coords.latitude, pos.coords.longitude),
-          (err) => {
-            console.warn("Konum alınamadı:", err);
-            sendScanData(decodedText, null, null); // Konum reddedilse bile veriyi gönder
-          },
+          () => { sendScanData(decodedText, null, null); },
           { timeout: 5000, enableHighAccuracy: true }
         );
       } else {
@@ -339,22 +307,16 @@
       }
     }
 
-    function onScanFailure() {
-      // Saniyede 10 kez çalıştığı için burayı boş bırakıyoruz. Log kirliliği yapmaması adına.
-    }
+    function onScanFailure() {}
 
-    // ==================== ARAYÜZ (UI) ETKİLEŞİMLERİ ====================
     document.getElementById('warningOkBtn').addEventListener('click', () => {
       document.getElementById('warningBox').classList.add('hidden');
       startScanner();
     });
 
     document.getElementById('stopScanBtn').addEventListener('click', () => {
-      if (isScanning) {
-        stopScanner();
-      } else {
-        startScanner();
-      }
+      if (isScanning) { stopScanner(); document.getElementById('scanResult').textContent = 'Tarama durduruldu.'; } 
+      else { startScanner(); }
     });
 
     document.getElementById('logoutBtn').addEventListener('click', () => {
@@ -362,8 +324,9 @@
         google.accounts.id.disableAutoSelect();
         stopScanner();
         currentUser = null;
+        localStorage.removeItem('devriye_user'); // Hafızayı sil
         showScreen('loginScreen');
-        document.querySelector('.subtitle').textContent = "Sisteme erişmek için Google hesabınızla giriş yapın";
+        initializeGIS();
       }
     });
 
