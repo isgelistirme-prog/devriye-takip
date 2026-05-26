@@ -205,17 +205,16 @@ async function fetchAdminWarnings() {
   const dismissedAt = localStorage.getItem('karakus_warning_dismissed_at');
   if (dismissedAt) {
     const hoursPassed = (new Date() - new Date(dismissedAt)) / (1000 * 60 * 60);
-    if (hoursPassed < 8) return; // 8 saat geçmediyse uyarılardan çık, gösterme
+    if (hoursPassed < 8) return; // 8 saat dolmadıysa fonksiyonu durdur, mesajı gösterme
   }
 
   try {
     const res = await fetch(CONFIG.SCRIPT_URL, { method: 'POST', body: JSON.stringify({ action: 'getWarning' }) });
     const data = await res.json();
     if (data.warning) {
-      // Kullanıcı modalda "Okudum" butonuna bastığında tetiklenecek callback fonksiyonu
-      showModal("Yönetici Mesajı", data.warning, data.type, () => {
-        localStorage.setItem('karakus_warning_dismissed_at', new Date().toISOString());
-      });
+      showModal("Yönetici Mesajı", data.warning, data.type);
+      // Mesaj ekranda belirdiği an 8 saatlik süreyi hemen başlatıyoruz (Buton yapısından bağımsız, en garanti yol)
+      localStorage.setItem('karakus_warning_dismissed_at', new Date().toISOString());
     }
   } catch(e) {}
 }
