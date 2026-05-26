@@ -1,4 +1,4 @@
-const CACHE_NAME = 'karakus-v1';
+const CACHE_NAME = 'Karakuş-v2';
 const ASSETS = [
   './',
   './index.html',
