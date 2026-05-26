@@ -201,10 +201,22 @@ function resumeScanner() {
 }
 
 async function fetchAdminWarnings() {
+  // 8 saatlik gizleme kontrolü
+  const dismissedAt = localStorage.getItem('karakus_warning_dismissed_at');
+  if (dismissedAt) {
+    const hoursPassed = (new Date() - new Date(dismissedAt)) / (1000 * 60 * 60);
+    if (hoursPassed < 8) return; // 8 saat geçmediyse uyarılardan çık, gösterme
+  }
+
   try {
     const res = await fetch(CONFIG.SCRIPT_URL, { method: 'POST', body: JSON.stringify({ action: 'getWarning' }) });
     const data = await res.json();
-    if (data.warning) showModal("Yönetici Mesajı", data.warning, data.type);
+    if (data.warning) {
+      // Kullanıcı modalda "Okudum" butonuna bastığında tetiklenecek callback fonksiyonu
+      showModal("Yönetici Mesajı", data.warning, data.type, () => {
+        localStorage.setItem('karakus_warning_dismissed_at', new Date().toISOString());
+      });
+    }
   } catch(e) {}
 }
 
