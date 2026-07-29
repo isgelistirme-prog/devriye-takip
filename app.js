@@ -1,5 +1,5 @@
 /**
- * KARAKUŞ PLATFORM - FRONTEND ENGINE (Mesai Takibi + Geri Bildirim)
+ * KARAKUŞ PLATFORM - FRONTEND ENGINE (Mesai Takibi + Geri Bildirim + Hata Ayıklama)
  */
 const CONFIG = {
   SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbyXnLMCDiqyPHkM36MiLKo43SWCEeJTeMoKr_ZxHxA3SI_i71JyAuQciTDCpIr6DU9mUQ/exec',
@@ -16,7 +16,7 @@ let camState = 'idle';
 let timerInterval = null;
 
 // ===== Ses (base64 kısa bip) =====
-const BEEP_SOUND = 'data:audio/wav;base64,UklGRlAAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAACAgICAf39/f39/f3+AgICAf39/f39/f3+AgICAf39/f39/f3+AgICAf39/f38=';
+const BEEP_SOUND = 'data:audio/wav;base64,UklGRlAAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAACAgICAf39/f39/f3+AgICAf39/f39/f3+AgICAf39/f38=';
 
 window.onload = () => {
   initNetworkListeners();
@@ -185,9 +185,10 @@ function onScanSuccess(decodedText) {
   playBeep();
 
   const cleanText = decodedText.trim().toUpperCase().replace(/İ/g, 'I');
-  console.log('QR okundu:', cleanText); // Konsolda kontrol
+  console.log('🔍 QR okundu:', cleanText);
   
   if (cleanText === 'MESAI') {
+    console.log('✅ Mesai QR tespit edildi!');
     camState = 'processing';
     handleAttendance(decodedText);
     return;
@@ -255,17 +256,17 @@ function resumeScanner() {
   setTimeout(() => { camState = 'scanning'; }, 2000);
 }
 
-// ================= MESAİ YÖNETİMİ =================
+// ================= MESAİ YÖNETİMİ (DÜZELTİLDİ) =================
 function handleAttendance(qrText) {
   const cleanText = qrText.trim().toUpperCase().replace(/İ/g, 'I');
   if (cleanText !== 'MESAI') {
-    console.warn('Mesai QR değil:', cleanText);
+    console.warn('⚠️ Mesai QR değil:', cleanText);
     return;
   }
-  console.log('Mesai işlemi başlatılıyor...');
+  console.log('⏳ Mesai işlemi başlatılıyor...');
 
   const att = JSON.parse(localStorage.getItem(ATTENDANCE_KEY) || '{"status":"idle"}');
-  console.log('Mevcut durum:', att.status);
+  console.log('📌 Mevcut durum:', att.status);
   
   if (att.status === 'idle') {
     att.status = 'started';
@@ -281,12 +282,15 @@ function handleAttendance(qrText) {
   else if (att.status === 'started') {
     const start = new Date(att.startTime);
     const elapsed = (Date.now() - start.getTime()) / 1000 / 60; // dakika
-    console.log('Geçen süre (dk):', elapsed);
+    console.log('⏱️ Geçen süre (dk):', elapsed);
+    
     if (elapsed < 60) {
       showModal('Mesai Bitişi', `Henüz 1 saat dolmadı (${Math.floor(elapsed)} dk). Bitiş için en az 1 saat beklemelisiniz.`, 'warning');
       resumeScannerAfterAttendance();
       return;
     }
+    
+    // Mesai bitir
     att.status = 'ended';
     att.endTime = new Date().toISOString();
     att.durationSeconds = (Date.now() - start.getTime()) / 1000;
@@ -296,7 +300,11 @@ function handleAttendance(qrText) {
     const durationStr = formatDuration(att.durationSeconds);
     showToast(`✅ Mesainiz tamamlandı! (${durationStr})`, 'success');
     sendNotification('Mesai Bitti', `Bugünkü mesainiz ${durationStr} sürdü. Teşekkürler!`);
+    
+    // ***** BURASI ÖNEMLİ: SUNUCUYA GÖNDER *****
+    console.log('📤 syncAttendanceToServer çağrılıyor...');
     syncAttendanceToServer(att);
+    
     resumeScannerAfterAttendance();
   } 
   else if (att.status === 'ended') {
@@ -318,6 +326,7 @@ function resumeScannerAfterAttendance() {
   }, 1500);
 }
 
+// ================= MESAİ GEÇMİŞİ VE SENKRONİZASYON (DÜZELTİLDİ) =================
 function addToHistory(att) {
   const history = JSON.parse(localStorage.getItem(ATT_HISTORY_KEY) || '[]');
   history.push({
@@ -330,7 +339,22 @@ function addToHistory(att) {
 }
 
 async function syncAttendanceToServer(att) {
+  console.log('🔍 syncAttendanceToServer çağrıldı');
+  console.log('📦 att nesnesi:', att);
+  
+  if (!att) {
+    console.error('❌ att undefined veya null!');
+    showToast('Mesai verisi boş, kaydedilemedi.', 'error');
+    return;
+  }
+
+  // Eksik alanları kontrol et
+  if (!att.startTime || !att.endTime || !att.durationSeconds) {
+    console.warn('⚠️ Eksik alanlar var:', att);
+  }
+
   if (!navigator.onLine) {
+    console.log('📴 Çevrimdışı, offline listesine ekleniyor...');
     const offline = JSON.parse(localStorage.getItem(OFFLINE_ATT_KEY) || '[]');
     offline.push({
       email: currentUser.email,
@@ -343,22 +367,37 @@ async function syncAttendanceToServer(att) {
     return;
   }
 
+  // Sunucuya gönderilecek veri
+  const payload = {
+    action: 'clockOut',
+    email: currentUser.email,
+    name: currentUser.name,
+    startTime: att.startTime,
+    endTime: att.endTime,
+    durationSeconds: att.durationSeconds
+  };
+  console.log('📤 Sunucuya gönderilecek payload:', payload);
+
   try {
     const response = await fetch(CONFIG.SCRIPT_URL, {
       method: 'POST',
-      body: JSON.stringify({
-        action: 'clockOut',
-        email: currentUser.email,
-        name: currentUser.name,
-        startTime: att.startTime,
-        endTime: att.endTime,
-        durationSeconds: att.durationSeconds
-      })
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload)
     });
     const data = await response.json();
-    console.log('Sunucu yanıtı:', data);
+    console.log('✅ Sunucu yanıtı:', data);
+    if (data.status === 'success') {
+      console.log('✅ Mesai başarıyla kaydedildi.');
+      showToast('Mesai sunucuya kaydedildi.', 'success');
+    } else {
+      console.warn('⚠️ Sunucu hatası:', data.message);
+      showToast('Mesai kaydedilemedi: ' + data.message, 'error');
+    }
   } catch(e) {
-    console.warn('Mesai senkronizasyon hatası', e);
+    console.error('❌ Mesai senkronizasyon hatası:', e);
+    // Hata durumunda offline'a al
     const offline = JSON.parse(localStorage.getItem(OFFLINE_ATT_KEY) || '[]');
     offline.push({
       email: currentUser.email,
@@ -368,6 +407,7 @@ async function syncAttendanceToServer(att) {
       durationSeconds: att.durationSeconds
     });
     localStorage.setItem(OFFLINE_ATT_KEY, JSON.stringify(offline));
+    showToast('Ağ hatası, mesai offline kaydedildi.', 'warning');
   }
 }
 
