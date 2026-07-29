@@ -174,12 +174,12 @@ document.getElementById('stopScanBtn').addEventListener('click', () => {
 function onScanSuccess(decodedText) {
   if (camState === 'processing') return;
   
-  // Mesai QR kontrolü
-  if (decodedText.trim() === 'MESAI') {
-    camState = 'processing';
-    handleAttendance(decodedText);
-    return;
-  }
+// Mesai QR kontrolü (büyük/küçük harf duyarsız, boşluk yok)
+if (decodedText.trim().toUpperCase() === 'MESAI') {
+  camState = 'processing';
+  handleAttendance(decodedText);
+  return;
+}
 
   // Normal devriye noktası
   camState = 'processing';
