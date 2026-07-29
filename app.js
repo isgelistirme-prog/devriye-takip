@@ -65,16 +65,17 @@ function showModal(title, message, type = 'info', cb = null) {
       temp();
     }
   };
-  // Otomatik kapatma yok – kullanıcı "Tamam" demeli
 }
 
 function closeModal() {
   const modal = document.getElementById('alertModal');
-  modal.classList.add('hidden');
-  if (modalCloseCallback) {
-    const temp = modalCloseCallback;
-    modalCloseCallback = null;
-    temp();
+  if (!modal.classList.contains('hidden')) {
+    modal.classList.add('hidden');
+    if (modalCloseCallback) {
+      const temp = modalCloseCallback;
+      modalCloseCallback = null;
+      temp();
+    }
   }
 }
 
@@ -114,10 +115,10 @@ function onLoginSuccess() {
   document.getElementById('displayName').textContent = currentUser.name;
   document.getElementById('userInitial').textContent = currentUser.name.charAt(0).toUpperCase();
   syncOfflineData();
+  // Uyarıları kontrol et (girişten sonra)
   fetchAdminWarnings();
   initScanner();
   updateAttendanceUI();
-  // Rapor butonu
   document.getElementById('reportBtn').addEventListener('click', showReport);
 }
 
@@ -207,7 +208,6 @@ function onScanSuccess(decodedText) {
   if (cleanText === 'MESAI') {
     console.log('✅ Mesai QR tespit edildi!');
     camState = 'processing';
-    // Kullanıcıya bilgi pop-up'ı göster
     showModal('⏳ İşlem Başladı', 'Mesai QR’ı okutuldu. Lütfen bekleyin, konum alınıyor ve veriler gönderiliyor...', 'info');
     handleAttendance(decodedText);
     return;
@@ -300,7 +300,6 @@ function handleAttendance(qrText) {
   console.log('📌 Mevcut durum:', att.status);
   
   if (att.status === 'idle') {
-    // Mesai başlat
     att.status = 'started';
     att.startTime = new Date().toISOString();
     att.endTime = null;
@@ -324,7 +323,6 @@ function handleAttendance(qrText) {
       return;
     }
     
-    // Mesai bitir
     att.status = 'ended';
     att.endTime = new Date().toISOString();
     att.durationSeconds = (Date.now() - start.getTime()) / 1000;
@@ -334,14 +332,11 @@ function handleAttendance(qrText) {
     const durationStr = formatDuration(att.durationSeconds);
     showToast(`✅ Mesainiz tamamlandı! (${durationStr})`, 'success');
     sendNotification('Mesai Bitti', `Bugünkü mesainiz ${durationStr} sürdü. Teşekkürler!`);
-    
-    // Sunucuya gönder
     syncAttendanceToServer(att);
     closeModal();
     resumeScannerAfterAttendance();
   } 
   else if (att.status === 'ended') {
-    // Yeni mesai başlat (önceki bitmiş)
     closeModal();
     showModal('Yeni Mesai', 'Önceki mesai tamamlandı. Yeni mesai başlatılsın mı?', 'warning', () => {
       const newAtt = { status: 'started', startTime: new Date().toISOString(), endTime: null, durationSeconds: 0 };
@@ -414,7 +409,6 @@ async function syncAttendanceToServer(att) {
       console.log('✅ Mesai sunucuya kaydedildi.');
     } else {
       console.warn('⚠️ Sunucu hatası:', data.message);
-      // Offline yedekle
       const offline = JSON.parse(localStorage.getItem(OFFLINE_ATT_KEY) || '[]');
       offline.push(payload);
       localStorage.setItem(OFFLINE_ATT_KEY, JSON.stringify(offline));
@@ -530,22 +524,33 @@ function sendNotification(title, body) {
   } catch(e) {}
 }
 
-// ================= YÖNETİCİ UYARILARI =================
+// ================= YÖNETİCİ UYARILARI (DÜZELTİLDİ) =================
 async function fetchAdminWarnings() {
   const dismissedAt = localStorage.getItem('karakus_warning_dismissed_at');
   if (dismissedAt) {
     const hoursPassed = (new Date() - new Date(dismissedAt)) / (1000 * 60 * 60);
-    if (hoursPassed < 8) return;
+    if (hoursPassed < 8) {
+      console.log('⚠️ Uyarı 8 saat içinde zaten gösterildi, atlanıyor.');
+      return;
+    }
   }
 
   try {
+    console.log('📡 Yönetici uyarıları kontrol ediliyor...');
     const res = await fetch(CONFIG.SCRIPT_URL, { method: 'POST', body: JSON.stringify({ action: 'getWarning' }) });
     const data = await res.json();
+    console.log('📨 Uyarı yanıtı:', data);
     if (data.warning) {
-      showModal("Yönetici Mesajı", data.warning, data.type || 'warning');
+      // Uyarı tipine göre modal tipi belirle
+      const modalType = data.type || 'warning';
+      showModal('📢 Yönetici Mesajı', data.warning, modalType);
       localStorage.setItem('karakus_warning_dismissed_at', new Date().toISOString());
+    } else {
+      console.log('✅ Aktif uyarı yok.');
     }
-  } catch(e) {}
+  } catch(e) {
+    console.error('❌ Uyarı alınamadı:', e);
+  }
 }
 
 // ================= ÇIKIŞ =================
