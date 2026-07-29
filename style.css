@@ -17,9 +17,11 @@
   --shadow: 0 8px 30px rgba(249, 115, 22, 0.12);
   --shadow-hover: 0 12px 40px rgba(249, 115, 22, 0.2);
   --transition: 0.3s ease;
-  --font-base: 17px;
-  --font-large: 22px;
-  --font-xl: 28px;
+  /* Dinamik font boyutları: clamp ile min, ideal, max */
+  --font-base: clamp(15px, 2.2vw, 18px);
+  --font-large: clamp(18px, 2.8vw, 24px);
+  --font-xl: clamp(24px, 4vw, 34px);
+  --font-timer: clamp(28px, 5vw, 40px);
 }
 
 /* ===== RESET ===== */
@@ -32,8 +34,8 @@ body {
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: 16px;
-  line-height: 1.6;
+  padding: 12px;
+  line-height: 1.5;
   font-size: var(--font-base);
   -webkit-font-smoothing: antialiased;
 }
@@ -45,118 +47,62 @@ body {
   background: var(--card);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
-  padding: 28px 22px 34px;
+  padding: 20px 16px 24px;
   transition: var(--transition);
   border: 1px solid var(--border);
+  max-height: 98vh;
+  overflow-y: auto;
 }
 
 /* ===== GİRİŞ EKRANI ===== */
 .login-screen {
   text-align: center;
-  padding: 20px 0 10px;
+  padding: 10px 0;
 }
 .login-brand {
-  margin-bottom: 32px;
+  margin-bottom: 24px;
 }
 .login-logo {
-  width: 130px;
-  height: 130px;
+  width: clamp(100px, 25vw, 130px);
+  height: clamp(100px, 25vw, 130px);
   object-fit: contain;
   border-radius: 24px;
   box-shadow: 0 8px 24px rgba(249, 115, 22, 0.15);
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 .login-brand h1 {
-  font-size: 34px;
+  font-size: var(--font-xl);
   font-weight: 800;
   color: var(--primary-dark);
   letter-spacing: -0.5px;
 }
 .login-brand .subtitle {
   color: var(--text-secondary);
-  font-size: 16px;
-  margin-top: 4px;
+  font-size: var(--font-base);
+  margin-top: 2px;
 }
 .google-btn-wrapper {
   display: flex;
   justify-content: center;
-  min-height: 60px;
+  min-height: 54px;
 }
 
 /* ===== ANA EKRAN ===== */
 .hidden { display: none !important; }
 
-/* ----- Kullanıcı Kartı ----- */
-.user-card {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  background: var(--primary-bg);
-  padding: 18px 20px;
-  border-radius: var(--radius);
-  border: 1px solid var(--border);
-  margin-bottom: 24px;
-}
-.user-avatar {
-  width: 56px;
-  height: 56px;
-  background: linear-gradient(135deg, var(--primary), var(--primary-light));
-  color: white;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 24px;
-  font-weight: 700;
-  flex-shrink: 0;
-}
-.user-details {
-  flex: 1;
-  min-width: 0;
-}
-.user-name {
-  font-weight: 700;
-  font-size: var(--font-large);
-  color: var(--primary-dark);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.network-status {
-  font-size: 15px;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  color: var(--success);
-}
-.btn-icon {
-  background: transparent;
-  border: none;
-  color: var(--text-secondary);
-  font-size: 22px;
-  cursor: pointer;
-  padding: 8px;
-  border-radius: 10px;
-  transition: var(--transition);
-}
-.btn-icon:hover {
-  background: #fee2e2;
-  color: var(--error);
-}
-
-/* ----- Tarayıcı Kartı ----- */
+/* ----- Tarayıcı Kartı (EN ÜST) ----- */
 .scanner-card {
   background: #fafafa;
   border-radius: var(--radius);
-  padding: 18px;
+  padding: 14px 14px 16px;
   border: 1px solid var(--border);
-  margin-bottom: 24px;
+  margin-bottom: 12px;
 }
 .scanner-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 14px;
+  margin-bottom: 10px;
 }
 .scanner-header h2 {
   font-size: var(--font-large);
@@ -165,14 +111,14 @@ body {
 }
 .scanner-header h2 i {
   color: var(--primary);
-  margin-right: 10px;
+  margin-right: 8px;
 }
 .scanner-badge {
   background: var(--primary);
   color: white;
-  font-size: 12px;
+  font-size: clamp(10px, 1.4vw, 12px);
   font-weight: 700;
-  padding: 6px 16px;
+  padding: 4px 14px;
   border-radius: 30px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -183,75 +129,27 @@ body {
   overflow: hidden;
   background: #0f172a;
   border: 3px solid var(--border);
-  min-height: 260px;
+  min-height: clamp(180px, 35vh, 260px);
   position: relative;
 }
 .scan-status {
-  margin-top: 16px;
+  margin-top: 12px;
   font-weight: 600;
-  font-size: 17px;
+  font-size: var(--font-base);
   color: var(--text-secondary);
   text-align: center;
 }
 .scan-status i {
-  margin-right: 8px;
+  margin-right: 6px;
   color: var(--primary);
 }
 
-/* ----- MESAİ KARTI (ALTTA, BÜYÜK) ----- */
-.attendance-card {
-  background: linear-gradient(135deg, #fff7ed, #ffedd5);
-  border-radius: var(--radius);
-  padding: 20px 24px;
-  display: flex;
-  align-items: center;
-  gap: 18px;
-  border: 2px solid #fed7aa;
-  margin-bottom: 24px;
-  transition: var(--transition);
-}
-.attendance-card.active {
-  border-color: var(--success);
-  background: linear-gradient(135deg, #ecfdf5, #d1fae5);
-}
-.attendance-icon {
-  font-size: 38px;
-  width: 60px;
-  height: 60px;
-  background: rgba(255,255,255,0.7);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-.attendance-info {
-  flex: 1;
-}
-.att-status {
-  font-weight: 700;
-  font-size: 18px;
-  color: var(--primary-dark);
-}
-.att-timer {
-  font-size: 32px;
-  font-weight: 800;
-  color: var(--primary-dark);
-  font-variant-numeric: tabular-nums;
-  letter-spacing: 1px;
-}
-
-/* ----- Butonlar (Büyük, rahat tıklama) ----- */
-.actions {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
+/* ----- Butonlar (orta boy) ----- */
 .btn {
   width: 100%;
-  padding: 18px;
+  padding: clamp(14px, 2.5vh, 18px);
   border-radius: 16px;
-  font-size: 18px;
+  font-size: var(--font-base);
   font-weight: 700;
   border: none;
   cursor: pointer;
@@ -259,7 +157,7 @@ body {
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 .btn:active { transform: scale(0.97); }
 .btn-primary {
@@ -288,7 +186,108 @@ body {
   background: #fecaca;
 }
 
-/* ===== MODAL (Pop-up) ===== */
+/* ----- Mesai Kartı ----- */
+.attendance-card {
+  background: linear-gradient(135deg, #fff7ed, #ffedd5);
+  border-radius: var(--radius);
+  padding: clamp(14px, 2vh, 20px) clamp(16px, 2.5vw, 24px);
+  display: flex;
+  align-items: center;
+  gap: clamp(12px, 2vw, 18px);
+  border: 2px solid #fed7aa;
+  margin: 12px 0 12px;
+  transition: var(--transition);
+}
+.attendance-card.active {
+  border-color: var(--success);
+  background: linear-gradient(135deg, #ecfdf5, #d1fae5);
+}
+.attendance-icon {
+  font-size: clamp(28px, 5vw, 38px);
+  width: clamp(48px, 8vw, 60px);
+  height: clamp(48px, 8vw, 60px);
+  background: rgba(255,255,255,0.7);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.attendance-info {
+  flex: 1;
+}
+.att-status {
+  font-weight: 700;
+  font-size: var(--font-base);
+  color: var(--primary-dark);
+}
+.att-timer {
+  font-size: var(--font-timer);
+  font-weight: 800;
+  color: var(--primary-dark);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 1px;
+}
+
+/* ----- Kullanıcı Kartı (EN ALT) ----- */
+.user-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: var(--primary-bg);
+  padding: clamp(12px, 1.8vh, 16px) clamp(14px, 2vw, 20px);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  margin-top: 10px;
+}
+.user-avatar {
+  width: clamp(42px, 7vw, 54px);
+  height: clamp(42px, 7vw, 54px);
+  background: linear-gradient(135deg, var(--primary), var(--primary-light));
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: clamp(18px, 3vw, 24px);
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.user-details {
+  flex: 1;
+  min-width: 0;
+}
+.user-name {
+  font-weight: 700;
+  font-size: var(--font-large);
+  color: var(--primary-dark);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.network-status {
+  font-size: clamp(13px, 1.8vw, 15px);
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  color: var(--success);
+}
+.btn-icon {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: clamp(18px, 3vw, 22px);
+  cursor: pointer;
+  padding: 6px 8px;
+  border-radius: 10px;
+  transition: var(--transition);
+}
+.btn-icon:hover {
+  background: #fee2e2;
+  color: var(--error);
+}
+
+/* ===== MODAL ===== */
 .modal-overlay {
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
@@ -298,7 +297,7 @@ body {
   justify-content: center;
   align-items: center;
   z-index: 9999;
-  padding: 24px;
+  padding: 20px;
   animation: fadeIn 0.25s ease;
 }
 .modal-content {
@@ -306,87 +305,87 @@ body {
   width: 100%;
   max-width: 420px;
   border-radius: var(--radius);
-  padding: 36px 28px;
+  padding: clamp(28px, 5vw, 36px) clamp(20px, 4vw, 28px);
   text-align: center;
   box-shadow: 0 30px 60px rgba(0,0,0,0.25);
   animation: popIn 0.3s ease-out;
 }
 .modal-icon {
-  font-size: 52px;
-  margin-bottom: 16px;
+  font-size: clamp(40px, 7vw, 52px);
+  margin-bottom: 12px;
   color: var(--primary);
 }
 #modalTitle {
   color: var(--primary-dark);
-  margin-bottom: 10px;
-  font-size: 24px;
+  margin-bottom: 8px;
+  font-size: var(--font-large);
   font-weight: 800;
 }
 #modalMessage {
   color: var(--text-secondary);
-  font-size: 18px;
-  line-height: 1.7;
-  margin-bottom: 28px;
+  font-size: var(--font-base);
+  line-height: 1.6;
+  margin-bottom: 24px;
 }
 .modal-content .btn {
-  font-size: 18px;
-  padding: 16px;
+  font-size: var(--font-base);
+  padding: clamp(14px, 2.2vh, 18px);
 }
 
 /* Rapor Modal */
 #reportModal .modal-content {
   max-width: 520px;
   text-align: left;
-  padding: 28px 24px;
+  padding: 24px 20px;
 }
 #reportContent {
-  max-height: 420px;
+  max-height: 400px;
   overflow-y: auto;
-  font-size: 16px;
+  font-size: var(--font-base);
 }
 #reportContent table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 15px;
+  font-size: clamp(14px, 2vw, 16px);
 }
 #reportContent th {
   background: var(--primary-dark);
   color: white;
-  padding: 12px 14px;
+  padding: 10px 12px;
   font-weight: 700;
-  font-size: 14px;
+  font-size: clamp(12px, 1.6vw, 14px);
   text-align: left;
 }
 #reportContent td {
-  padding: 12px 14px;
+  padding: 10px 12px;
   border-bottom: 1px solid var(--border);
 }
 #reportContent .empty {
   color: var(--text-secondary);
   text-align: center;
-  padding: 30px;
-  font-size: 18px;
+  padding: 24px;
+  font-size: var(--font-base);
 }
 
 /* ===== TOAST ===== */
 .toast-container {
   position: fixed;
-  top: 24px;
+  top: 16px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 10000;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
   width: 92%;
   max-width: 420px;
 }
 .toast {
-  padding: 18px 24px;
+  padding: clamp(14px, 2.2vh, 18px) clamp(18px, 3vw, 24px);
   border-radius: 14px;
   color: white;
   font-weight: 600;
-  font-size: 17px;
+  font-size: var(--font-base);
   box-shadow: 0 8px 24px rgba(0,0,0,0.15);
   animation: slideDown 0.35s ease forwards;
   display: flex;
@@ -417,10 +416,7 @@ body {
 
 /* ===== RESPONSIVE ===== */
 @media (max-width: 420px) {
-  .container { padding: 18px; }
-  .att-timer { font-size: 28px; }
-  .btn { font-size: 16px; padding: 16px; }
-  .modal-content { padding: 28px 20px; }
-  #modalTitle { font-size: 20px; }
-  #modalMessage { font-size: 16px; }
+  .container { padding: 14px 12px 18px; }
+  #reader { min-height: 180px; }
+  .att-timer { font-size: var(--font-timer); }
 }
