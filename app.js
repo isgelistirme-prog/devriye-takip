@@ -1,8 +1,8 @@
 /**
- * KARAKUŞ PLATFORM - FRONTEND ENGINE (Mesai Takibi Eklendi)
+ * KARAKUŞ PLATFORM - FRONTEND ENGINE (Mesai Takibi + Geri Bildirim)
  */
 const CONFIG = {
-  SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbyXnLMCDiqyPHkM36MiLKo43SWCEeJTeMoKr_ZxHxA3SI_i71JyAuQciTDCpIr6DU9mUQ/exec', // << KENDİ URL'NİZLE DEĞİŞTİR
+  SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbyXnLMCDiqyPHkM36MiLKo43SWCEeJTeMoKr_ZxHxA3SI_i71JyAuQciTDCpIr6DU9mUQ/exec',
   CLIENT_ID: '653251016114-4340l82dqeldg25umf3749gr9b4aj8gn.apps.googleusercontent.com'
 };
 
@@ -14,6 +14,9 @@ let currentUser = JSON.parse(localStorage.getItem('karakus_user'));
 let html5QrCode = null;
 let camState = 'idle';
 let timerInterval = null;
+
+// ===== Ses (base64 kısa bip) =====
+const BEEP_SOUND = 'data:audio/wav;base64,UklGRlAAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAACAgICAf39/f39/f3+AgICAf39/f39/f3+AgICAf39/f39/f3+AgICAf39/f38=';
 
 window.onload = () => {
   initNetworkListeners();
@@ -42,7 +45,6 @@ function showModal(title, message, type = 'warning', cb = null) {
   document.getElementById('modalMessage').textContent = message;
   document.getElementById('modalTitle').style.color = type === 'critical' ? '#c62828' : '#f57f17';
   
-  // ***** DÜZELTME: icon'u innerHTML ile değiştir *****
   const iconEl = document.getElementById('modalIcon');
   if (type === 'critical') {
     iconEl.innerHTML = '<i class="fas fa-circle-exclamation" style="color: #ef4444;"></i>';
@@ -178,15 +180,20 @@ document.getElementById('stopScanBtn').addEventListener('click', () => {
 function onScanSuccess(decodedText) {
   if (camState === 'processing') return;
   
-  // ***** DÜZELTME: Türkçe İ sorununu çöz *****
+  // Geri bildirim: titreşim + ses
+  if (navigator.vibrate) navigator.vibrate(100);
+  playBeep();
+
   const cleanText = decodedText.trim().toUpperCase().replace(/İ/g, 'I');
+  console.log('QR okundu:', cleanText); // Konsolda kontrol
+  
   if (cleanText === 'MESAI') {
     camState = 'processing';
     handleAttendance(decodedText);
     return;
   }
 
-  // Normal devriye noktası
+  // Normal devriye
   camState = 'processing';
   document.getElementById('scanResult').innerHTML = "📍 Konum doğrulanıyor...";
   
@@ -199,6 +206,14 @@ function onScanSuccess(decodedText) {
   } else {
     processScanPayload(decodedText, null, null);
   }
+}
+
+function playBeep() {
+  try {
+    const audio = new Audio(BEEP_SOUND);
+    audio.volume = 0.3;
+    audio.play().catch(() => {});
+  } catch(e) {}
 }
 
 // ================= DEVRİYE KAYDI =================
@@ -242,11 +257,15 @@ function resumeScanner() {
 
 // ================= MESAİ YÖNETİMİ =================
 function handleAttendance(qrText) {
-  // ***** DÜZELTME: Türkçe İ sorununu çöz *****
   const cleanText = qrText.trim().toUpperCase().replace(/İ/g, 'I');
-  if (cleanText !== 'MESAI') return;
+  if (cleanText !== 'MESAI') {
+    console.warn('Mesai QR değil:', cleanText);
+    return;
+  }
+  console.log('Mesai işlemi başlatılıyor...');
 
   const att = JSON.parse(localStorage.getItem(ATTENDANCE_KEY) || '{"status":"idle"}');
+  console.log('Mevcut durum:', att.status);
   
   if (att.status === 'idle') {
     att.status = 'started';
@@ -262,8 +281,8 @@ function handleAttendance(qrText) {
   else if (att.status === 'started') {
     const start = new Date(att.startTime);
     const elapsed = (Date.now() - start.getTime()) / 1000 / 60; // dakika
-    // ***** DÜZELTME: Virgül hatasını düzelt (0.1 veya 60 yap) *****
-    if (elapsed < 60) { // 60 dakika = 1 saat
+    console.log('Geçen süre (dk):', elapsed);
+    if (elapsed < 60) {
       showModal('Mesai Bitişi', `Henüz 1 saat dolmadı (${Math.floor(elapsed)} dk). Bitiş için en az 1 saat beklemelisiniz.`, 'warning');
       resumeScannerAfterAttendance();
       return;
@@ -325,7 +344,7 @@ async function syncAttendanceToServer(att) {
   }
 
   try {
-    await fetch(CONFIG.SCRIPT_URL, {
+    const response = await fetch(CONFIG.SCRIPT_URL, {
       method: 'POST',
       body: JSON.stringify({
         action: 'clockOut',
@@ -336,6 +355,8 @@ async function syncAttendanceToServer(att) {
         durationSeconds: att.durationSeconds
       })
     });
+    const data = await response.json();
+    console.log('Sunucu yanıtı:', data);
   } catch(e) {
     console.warn('Mesai senkronizasyon hatası', e);
     const offline = JSON.parse(localStorage.getItem(OFFLINE_ATT_KEY) || '[]');
