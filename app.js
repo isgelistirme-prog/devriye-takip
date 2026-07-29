@@ -290,7 +290,7 @@ function processAttendance() {
   else if (att.status === 'started') {
     const start = new Date(att.startTime);
     const elapsed = (Date.now() - start.getTime()) / 1000 / 60; // dakika
-    if (elapsed < 60) { // 1 saat kontrolü
+    if (elapsed < 0,1) { // 1 saat kontrolü
       showModal('Mesai Bitişi', `Henüz 1 saat dolmadı (${Math.floor(elapsed)} dk). Bitiş için en az 1 saat beklemelisiniz.`, 'warning');
       resumeScannerAfterAttendance();
       return;
