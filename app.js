@@ -1,5 +1,5 @@
 /**
- * KARAKUŞ PLATFORM - FRONTEND ENGINE (Mesai Takibi + Geri Bildirim + Hata Ayıklama)
+ * KARAKUŞ PLATFORM - FRONTEND ENGINE (Mesai sadece QR, turuncu tema, pop-up bilgi)
  */
 const CONFIG = {
   SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbyXnLMCDiqyPHkM36MiLKo43SWCEeJTeMoKr_ZxHxA3SI_i71JyAuQciTDCpIr6DU9mUQ/exec',
@@ -14,8 +14,9 @@ let currentUser = JSON.parse(localStorage.getItem('karakus_user'));
 let html5QrCode = null;
 let camState = 'idle';
 let timerInterval = null;
+let modalCloseCallback = null;
 
-// ===== Ses (base64 kısa bip) =====
+// Ses (bip)
 const BEEP_SOUND = 'data:audio/wav;base64,UklGRlAAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAACAgICAf39/f39/f3+AgICAf39/f39/f3+AgICAf39/f38=';
 
 window.onload = () => {
@@ -36,27 +37,45 @@ function showToast(message, type = 'success') {
   toast.className = `toast ${type}`;
   toast.innerHTML = `<span>${type === 'success'?'✅':type==='error'?'❌':'⚠️'}</span> ${message}`;
   container.appendChild(toast);
-  setTimeout(() => { toast.style.animation = "fadeOut 0.3s forwards"; setTimeout(() => toast.remove(), 300); }, 3000);
+  setTimeout(() => { toast.style.animation = "fadeOut 0.3s forwards"; setTimeout(() => toast.remove(), 300); }, 4000);
 }
 
-function showModal(title, message, type = 'warning', cb = null) {
+function showModal(title, message, type = 'info', cb = null) {
   const modal = document.getElementById('alertModal');
   document.getElementById('modalTitle').textContent = title;
   document.getElementById('modalMessage').textContent = message;
-  document.getElementById('modalTitle').style.color = type === 'critical' ? '#c62828' : '#f57f17';
   
   const iconEl = document.getElementById('modalIcon');
   if (type === 'critical') {
     iconEl.innerHTML = '<i class="fas fa-circle-exclamation" style="color: #ef4444;"></i>';
+  } else if (type === 'success') {
+    iconEl.innerHTML = '<i class="fas fa-circle-check" style="color: #22c55e;"></i>';
   } else {
-    iconEl.innerHTML = '<i class="fas fa-triangle-exclamation" style="color: #f59e0b;"></i>';
+    iconEl.innerHTML = '<i class="fas fa-info-circle" style="color: #f97316;"></i>';
   }
   
   modal.classList.remove('hidden');
-  document.getElementById('modalBtn').onclick = () => {
+  modalCloseCallback = cb || null;
+  const btn = document.getElementById('modalBtn');
+  btn.onclick = () => {
     modal.classList.add('hidden');
-    if(cb) cb();
+    if (modalCloseCallback) {
+      const temp = modalCloseCallback;
+      modalCloseCallback = null;
+      temp();
+    }
   };
+  // Otomatik kapatma yok – kullanıcı "Tamam" demeli
+}
+
+function closeModal() {
+  const modal = document.getElementById('alertModal');
+  modal.classList.add('hidden');
+  if (modalCloseCallback) {
+    const temp = modalCloseCallback;
+    modalCloseCallback = null;
+    temp();
+  }
 }
 
 // ================= AUTH =================
@@ -98,9 +117,7 @@ function onLoginSuccess() {
   fetchAdminWarnings();
   initScanner();
   updateAttendanceUI();
-  document.getElementById('manualClockBtn').addEventListener('click', () => {
-    handleAttendance('MESAI');
-  });
+  // Rapor butonu
   document.getElementById('reportBtn').addEventListener('click', showReport);
 }
 
@@ -108,12 +125,12 @@ function onLoginSuccess() {
 function initNetworkListeners() {
   window.addEventListener('online', () => {
     document.getElementById('networkStatus').innerHTML = '🟢 Çevrimiçi';
-    document.getElementById('networkStatus').style.color = '#2e7d32';
+    document.getElementById('networkStatus').style.color = '#22c55e';
     syncOfflineData();
   });
   window.addEventListener('offline', () => {
     document.getElementById('networkStatus').innerHTML = '🔴 Çevrimdışı (Kayıtlar saklanacak)';
-    document.getElementById('networkStatus').style.color = '#c62828';
+    document.getElementById('networkStatus').style.color = '#ef4444';
   });
 }
 
@@ -159,7 +176,7 @@ async function initScanner() {
       .catch(() => html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: { width: 250, height: 250 } }, onScanSuccess));
       
     camState = 'scanning';
-    document.getElementById('scanResult').innerHTML = "🟢 Kamera aktif, barkod okutun.";
+    document.getElementById('scanResult').innerHTML = "🟢 Kamera aktif, QR okutun.";
   } catch (err) {
     camState = 'idle';
     document.getElementById('scanResult').innerHTML = "❌ Kamera hatası. Tekrar deneyin.";
@@ -190,21 +207,31 @@ function onScanSuccess(decodedText) {
   if (cleanText === 'MESAI') {
     console.log('✅ Mesai QR tespit edildi!');
     camState = 'processing';
+    // Kullanıcıya bilgi pop-up'ı göster
+    showModal('⏳ İşlem Başladı', 'Mesai QR’ı okutuldu. Lütfen bekleyin, konum alınıyor ve veriler gönderiliyor...', 'info');
     handleAttendance(decodedText);
     return;
   }
 
-  // Normal devriye
+  // Normal devriye noktası
   camState = 'processing';
   document.getElementById('scanResult').innerHTML = "📍 Konum doğrulanıyor...";
+  showModal('📍 Konum Alınıyor', 'Devriye noktası okutuldu. Konum bilgisi alınıyor ve sunucuya gönderiliyor. Lütfen bekleyin.', 'info');
   
   if (navigator.geolocation) {
     navigator.geolocation.getCurrentPosition(
-      pos => processScanPayload(decodedText, pos.coords.latitude, pos.coords.longitude),
-      err => processScanPayload(decodedText, null, null),
-      { enableHighAccuracy: true, timeout: 5000 }
+      pos => {
+        closeModal();
+        processScanPayload(decodedText, pos.coords.latitude, pos.coords.longitude);
+      },
+      err => {
+        closeModal();
+        processScanPayload(decodedText, null, null);
+      },
+      { enableHighAccuracy: true, timeout: 8000 }
     );
   } else {
+    closeModal();
     processScanPayload(decodedText, null, null);
   }
 }
@@ -228,21 +255,25 @@ async function processScanPayload(qrText, lat, lng) {
     const offlineScans = JSON.parse(localStorage.getItem('karakus_offline_scans') || '[]');
     offlineScans.push(payload);
     localStorage.setItem('karakus_offline_scans', JSON.stringify(offlineScans));
-    showToast(`${qrText} çevrimdışı kaydedildi.`);
+    showToast(`${qrText} çevrimdışı kaydedildi.`, 'warning');
+    closeModal();
     resumeScanner();
     return;
   }
 
   document.getElementById('scanResult').innerHTML = "⏳ Veri sunucuya iletiliyor...";
+  showModal('📤 Veri Gönderiliyor', 'Devriye bilgileri sunucuya aktarılıyor. Lütfen bekleyin.', 'info');
   try {
     const res = await fetch(CONFIG.SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
     const data = await res.json();
+    closeModal();
     if (data.status === 'success') {
-      showToast(`${qrText} başarıyla kaydedildi.`);
+      showToast(`${qrText} başarıyla kaydedildi.`, 'success');
     } else {
       showToast(data.message, 'error');
     }
   } catch (error) {
+    closeModal();
     showToast("Ağ hatası. Çevrimdışı kaydedilecek.", "warning");
     const offlineScans = JSON.parse(localStorage.getItem('karakus_offline_scans') || '[]');
     offlineScans.push(payload);
@@ -256,19 +287,20 @@ function resumeScanner() {
   setTimeout(() => { camState = 'scanning'; }, 2000);
 }
 
-// ================= MESAİ YÖNETİMİ (DÜZELTİLDİ) =================
+// ================= MESAİ YÖNETİMİ (SADECE QR) =================
 function handleAttendance(qrText) {
   const cleanText = qrText.trim().toUpperCase().replace(/İ/g, 'I');
   if (cleanText !== 'MESAI') {
     console.warn('⚠️ Mesai QR değil:', cleanText);
+    closeModal();
     return;
   }
-  console.log('⏳ Mesai işlemi başlatılıyor...');
 
   const att = JSON.parse(localStorage.getItem(ATTENDANCE_KEY) || '{"status":"idle"}');
   console.log('📌 Mevcut durum:', att.status);
   
   if (att.status === 'idle') {
+    // Mesai başlat
     att.status = 'started';
     att.startTime = new Date().toISOString();
     att.endTime = null;
@@ -277,6 +309,7 @@ function handleAttendance(qrText) {
     updateAttendanceUI();
     showToast('✅ Mesainiz başladı!', 'success');
     sendNotification('Mesai Başladı', 'Devriye görevinize başladınız. İyi çalışmalar!');
+    closeModal();
     resumeScannerAfterAttendance();
   } 
   else if (att.status === 'started') {
@@ -285,7 +318,8 @@ function handleAttendance(qrText) {
     console.log('⏱️ Geçen süre (dk):', elapsed);
     
     if (elapsed < 60) {
-      showModal('Mesai Bitişi', `Henüz 1 saat dolmadı (${Math.floor(elapsed)} dk). Bitiş için en az 1 saat beklemelisiniz.`, 'warning');
+      closeModal();
+      showModal('⏳ Mesai Bitişi', `Henüz 1 saat dolmadı (${Math.floor(elapsed)} dk). Bitiş için en az 1 saat beklemelisiniz.`, 'warning');
       resumeScannerAfterAttendance();
       return;
     }
@@ -301,13 +335,14 @@ function handleAttendance(qrText) {
     showToast(`✅ Mesainiz tamamlandı! (${durationStr})`, 'success');
     sendNotification('Mesai Bitti', `Bugünkü mesainiz ${durationStr} sürdü. Teşekkürler!`);
     
-    // ***** BURASI ÖNEMLİ: SUNUCUYA GÖNDER *****
-    console.log('📤 syncAttendanceToServer çağrılıyor...');
+    // Sunucuya gönder
     syncAttendanceToServer(att);
-    
+    closeModal();
     resumeScannerAfterAttendance();
   } 
   else if (att.status === 'ended') {
+    // Yeni mesai başlat (önceki bitmiş)
+    closeModal();
     showModal('Yeni Mesai', 'Önceki mesai tamamlandı. Yeni mesai başlatılsın mı?', 'warning', () => {
       const newAtt = { status: 'started', startTime: new Date().toISOString(), endTime: null, durationSeconds: 0 };
       localStorage.setItem(ATTENDANCE_KEY, JSON.stringify(newAtt));
@@ -322,11 +357,11 @@ function handleAttendance(qrText) {
 function resumeScannerAfterAttendance() {
   setTimeout(() => {
     camState = 'scanning';
-    document.getElementById('scanResult').innerHTML = "🟢 Kamera aktif, barkod okutun.";
+    document.getElementById('scanResult').innerHTML = "🟢 Kamera aktif, QR okutun.";
   }, 1500);
 }
 
-// ================= MESAİ GEÇMİŞİ VE SENKRONİZASYON (DÜZELTİLDİ) =================
+// ================= MESAİ GEÇMİŞİ VE SENKRONİZASYON =================
 function addToHistory(att) {
   const history = JSON.parse(localStorage.getItem(ATT_HISTORY_KEY) || '[]');
   history.push({
@@ -339,22 +374,12 @@ function addToHistory(att) {
 }
 
 async function syncAttendanceToServer(att) {
-  console.log('🔍 syncAttendanceToServer çağrıldı');
-  console.log('📦 att nesnesi:', att);
-  
   if (!att) {
-    console.error('❌ att undefined veya null!');
-    showToast('Mesai verisi boş, kaydedilemedi.', 'error');
+    console.error('❌ att undefined!');
     return;
   }
 
-  // Eksik alanları kontrol et
-  if (!att.startTime || !att.endTime || !att.durationSeconds) {
-    console.warn('⚠️ Eksik alanlar var:', att);
-  }
-
   if (!navigator.onLine) {
-    console.log('📴 Çevrimdışı, offline listesine ekleniyor...');
     const offline = JSON.parse(localStorage.getItem(OFFLINE_ATT_KEY) || '[]');
     offline.push({
       email: currentUser.email,
@@ -364,10 +389,10 @@ async function syncAttendanceToServer(att) {
       durationSeconds: att.durationSeconds
     });
     localStorage.setItem(OFFLINE_ATT_KEY, JSON.stringify(offline));
+    showToast('Mesai offline kaydedildi.', 'warning');
     return;
   }
 
-  // Sunucuya gönderilecek veri
   const payload = {
     action: 'clockOut',
     email: currentUser.email,
@@ -376,36 +401,29 @@ async function syncAttendanceToServer(att) {
     endTime: att.endTime,
     durationSeconds: att.durationSeconds
   };
-  console.log('📤 Sunucuya gönderilecek payload:', payload);
+  console.log('📤 Sunucuya gönderiliyor:', payload);
 
   try {
     const response = await fetch(CONFIG.SCRIPT_URL, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
     const data = await response.json();
-    console.log('✅ Sunucu yanıtı:', data);
     if (data.status === 'success') {
-      console.log('✅ Mesai başarıyla kaydedildi.');
-      showToast('Mesai sunucuya kaydedildi.', 'success');
+      console.log('✅ Mesai sunucuya kaydedildi.');
     } else {
       console.warn('⚠️ Sunucu hatası:', data.message);
-      showToast('Mesai kaydedilemedi: ' + data.message, 'error');
+      // Offline yedekle
+      const offline = JSON.parse(localStorage.getItem(OFFLINE_ATT_KEY) || '[]');
+      offline.push(payload);
+      localStorage.setItem(OFFLINE_ATT_KEY, JSON.stringify(offline));
+      showToast('Sunucu hatası, mesai offline kaydedildi.', 'error');
     }
   } catch(e) {
     console.error('❌ Mesai senkronizasyon hatası:', e);
-    // Hata durumunda offline'a al
     const offline = JSON.parse(localStorage.getItem(OFFLINE_ATT_KEY) || '[]');
-    offline.push({
-      email: currentUser.email,
-      name: currentUser.name,
-      startTime: att.startTime,
-      endTime: att.endTime,
-      durationSeconds: att.durationSeconds
-    });
+    offline.push(payload);
     localStorage.setItem(OFFLINE_ATT_KEY, JSON.stringify(offline));
     showToast('Ağ hatası, mesai offline kaydedildi.', 'warning');
   }
@@ -417,7 +435,7 @@ function updateAttendanceUI() {
   const statusEl = document.getElementById('attStatus');
   const timerEl = document.getElementById('attTimer');
   const iconEl = document.getElementById('attIcon');
-  const manualBtn = document.getElementById('manualClockBtn');
+  const card = document.getElementById('attendanceCard');
   
   if (timerInterval) clearInterval(timerInterval);
 
@@ -425,11 +443,11 @@ function updateAttendanceUI() {
     statusEl.textContent = 'Mesai başlatılmadı';
     timerEl.textContent = '00:00:00';
     iconEl.innerHTML = '<i class="fas fa-clock"></i>';
-    manualBtn.innerHTML = '<i class="fas fa-play"></i> Başlat';
+    card.classList.remove('active');
   } else if (att.status === 'started') {
     statusEl.textContent = 'Mesai devam ediyor';
     iconEl.innerHTML = '<i class="fas fa-play-circle" style="color: #22c55e;"></i>';
-    manualBtn.innerHTML = '<i class="fas fa-stop"></i> Bitir (QR)';
+    card.classList.add('active');
     timerInterval = setInterval(() => {
       const elapsed = (Date.now() - new Date(att.startTime).getTime()) / 1000;
       timerEl.textContent = formatDuration(elapsed);
@@ -438,7 +456,7 @@ function updateAttendanceUI() {
     statusEl.textContent = `Mesai tamamlandı (${formatDuration(att.durationSeconds)})`;
     timerEl.textContent = formatDuration(att.durationSeconds);
     iconEl.innerHTML = '<i class="fas fa-flag-checkered" style="color: #ef4444;"></i>';
-    manualBtn.innerHTML = '<i class="fas fa-play"></i> Yeni Mesai';
+    card.classList.remove('active');
   }
 }
 
@@ -524,7 +542,7 @@ async function fetchAdminWarnings() {
     const res = await fetch(CONFIG.SCRIPT_URL, { method: 'POST', body: JSON.stringify({ action: 'getWarning' }) });
     const data = await res.json();
     if (data.warning) {
-      showModal("Yönetici Mesajı", data.warning, data.type);
+      showModal("Yönetici Mesajı", data.warning, data.type || 'warning');
       localStorage.setItem('karakus_warning_dismissed_at', new Date().toISOString());
     }
   } catch(e) {}
