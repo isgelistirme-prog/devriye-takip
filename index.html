@@ -23,6 +23,17 @@
     </div>
   </div>
 
+  <!-- Rapor Modal (Mesai Geçmişi) -->
+  <div id="reportModal" class="modal-overlay hidden">
+    <div class="modal-content" style="max-width: 500px; text-align: left; padding: 20px;">
+      <h3 style="color: var(--primary); margin-bottom: 15px;">📊 Mesai Geçmişim</h3>
+      <div id="reportContent" style="max-height: 400px; overflow-y: auto; font-size: 14px;">
+        <p style="color: #666;">Yükleniyor...</p>
+      </div>
+      <button class="btn btn-primary" id="reportCloseBtn" style="margin-top: 20px;">Kapat</button>
+    </div>
+  </div>
+
   <div class="container" id="app">
     <div id="loginScreen">
       <img src="logo.png" alt="Karakuş Logo" style="width: 140px; height: 140px; object-fit: contain; margin-bottom: 20px; border-radius: 12px;">
@@ -42,6 +53,16 @@
         </div>
       </div>
 
+      <!-- MESAİ KARTI (YENİ) -->
+      <div class="attendance-card" id="attendanceCard">
+        <div class="attendance-icon" id="attIcon">🕒</div>
+        <div class="attendance-info">
+          <div class="att-status" id="attStatus">Mesai başlatılmadı</div>
+          <div class="att-timer" id="attTimer">00:00:00</div>
+        </div>
+        <button class="btn-attendance" id="manualClockBtn">⏱️ Mesai Başlat</button>
+      </div>
+
       <div class="scanner-card">
         <h2>📷 Devriye Noktası Okut</h2>
         <div id="reader"></div>
@@ -50,6 +71,7 @@
 
       <div class="actions">
         <button class="btn btn-outline" id="stopScanBtn">⏸️ Kamerayı Yeniden Başlat</button>
+        <button class="btn btn-outline" id="reportBtn">📊 Mesai Raporum</button>
         <button class="btn btn-danger" id="logoutBtn">🚪 Güvenli Çıkış</button>
       </div>
     </div>
@@ -59,7 +81,9 @@
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('sw.js').then(reg => console.log('SW Registered')).catch(err => console.log('SW Failed', err));
+        navigator.serviceWorker.register('sw.js')
+          .then(reg => console.log('SW Registered'))
+          .catch(err => console.log('SW Failed', err));
       });
     }
   </script>
