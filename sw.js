@@ -1,4 +1,4 @@
-const CACHE_NAME = 'Karakuş-v3'; // v2 → v3
+const CACHE_NAME = 'Karakuş-v4';
 const ASSETS = [
   './',
   './index.html',
