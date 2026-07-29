@@ -3,30 +3,37 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <meta name="theme-color" content="#1a2a6c">
+  <meta name="theme-color" content="#0f172a">
   <title>Karakuş Devriye Yönetim Platformu</title>
   <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="style.css">
+  <!-- Google Fonts (Inter) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,600;14..32,700;14..32,800&display=swap" rel="stylesheet">
+  <!-- Font Awesome 6 (ücretsiz ikonlar) -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
 </head>
 <body>
-  
+
   <div id="toastContainer" class="toast-container"></div>
 
+  <!-- Uyarı Modal -->
   <div id="alertModal" class="modal-overlay hidden">
     <div class="modal-content">
-      <div class="modal-icon" id="modalIcon">⚠️</div>
+      <div class="modal-icon" id="modalIcon"><i class="fas fa-triangle-exclamation"></i></div>
       <h3 id="modalTitle">Sistem Uyarısı</h3>
       <p id="modalMessage"></p>
       <button class="btn btn-primary" id="modalBtn">Okudum, Anladım</button>
     </div>
   </div>
 
-  <!-- Rapor Modal (Mesai Geçmişi) -->
+  <!-- Rapor Modal -->
   <div id="reportModal" class="modal-overlay hidden">
     <div class="modal-content" style="max-width: 500px; text-align: left; padding: 20px;">
-      <h3 style="color: var(--primary); margin-bottom: 15px;">📊 Mesai Geçmişim</h3>
+      <h3 style="color: var(--primary); margin-bottom: 15px;"><i class="fas fa-chart-simple"></i> Mesai Geçmişim</h3>
       <div id="reportContent" style="max-height: 400px; overflow-y: auto; font-size: 14px;">
         <p style="color: #666;">Yükleniyor...</p>
       </div>
@@ -34,45 +41,68 @@
     </div>
   </div>
 
+  <!-- Ana Uygulama -->
   <div class="container" id="app">
-    <div id="loginScreen">
-      <img src="logo.png" alt="Karakuş Logo" style="width: 140px; height: 140px; object-fit: contain; margin-bottom: 20px; border-radius: 12px;">
-      <h2>Karakuş Güvenlik</h2>
-      <p class="subtitle">Platforma erişmek için giriş yapın</p>
+    <!-- GİRİŞ EKRANI -->
+    <div id="loginScreen" class="login-screen">
+      <div class="login-brand">
+        <img src="logo.png" alt="Karakuş Logo" class="login-logo">
+        <h1>Karakuş</h1>
+        <p class="subtitle">Güvenlik Devriye Sistemi</p>
+      </div>
       <div id="g_id_signin" class="google-btn-wrapper"></div>
     </div>
 
+    <!-- ANA EKRAN -->
     <div id="mainScreen" class="hidden">
-      <div class="header-card">
-        <div class="user-info">
-          <div class="user-avatar" id="userInitial">?</div>
-          <div class="user-details">
-            <div class="user-name" id="displayName">Yükleniyor...</div>
-            <div class="network-status" id="networkStatus">🟢 Çevrimiçi</div>
+      <!-- Kullanıcı Kartı -->
+      <div class="user-card">
+        <div class="user-avatar" id="userInitial">?</div>
+        <div class="user-details">
+          <div class="user-name" id="displayName">Yükleniyor...</div>
+          <div class="network-status" id="networkStatus">
+            <i class="fas fa-circle" style="font-size: 8px; margin-right: 6px; color: var(--success);"></i> Çevrimiçi
           </div>
         </div>
+        <button class="btn-icon" id="logoutBtn" title="Çıkış Yap">
+          <i class="fas fa-right-from-bracket"></i>
+        </button>
       </div>
 
-      <!-- MESAİ KARTI (YENİ) -->
+      <!-- MESAİ KARTI -->
       <div class="attendance-card" id="attendanceCard">
-        <div class="attendance-icon" id="attIcon">🕒</div>
+        <div class="attendance-icon" id="attIcon">
+          <i class="fas fa-clock"></i>
+        </div>
         <div class="attendance-info">
           <div class="att-status" id="attStatus">Mesai başlatılmadı</div>
           <div class="att-timer" id="attTimer">00:00:00</div>
         </div>
-        <button class="btn-attendance" id="manualClockBtn">⏱️ Mesai Başlat</button>
+        <button class="btn-attendance" id="manualClockBtn">
+          <i class="fas fa-play"></i> Başlat
+        </button>
       </div>
 
+      <!-- TARAYICI KARTI -->
       <div class="scanner-card">
-        <h2>📷 Devriye Noktası Okut</h2>
+        <div class="scanner-header">
+          <h2><i class="fas fa-qrcode"></i> Devriye Noktası</h2>
+          <span class="scanner-badge">QR Oku</span>
+        </div>
         <div id="reader"></div>
-        <p id="scanResult" class="scan-status">Sistem Hazır. Kamera bekleniyor...</p>
+        <p id="scanResult" class="scan-status">
+          <i class="fas fa-camera"></i> Sistem Hazır. Kamera bekleniyor...
+        </p>
       </div>
 
+      <!-- AKSİYON BUTONLARI -->
       <div class="actions">
-        <button class="btn btn-outline" id="stopScanBtn">⏸️ Kamerayı Yeniden Başlat</button>
-        <button class="btn btn-outline" id="reportBtn">📊 Mesai Raporum</button>
-        <button class="btn btn-danger" id="logoutBtn">🚪 Güvenli Çıkış</button>
+        <button class="btn btn-outline" id="stopScanBtn">
+          <i class="fas fa-rotate-right"></i> Kamerayı Yeniden Başlat
+        </button>
+        <button class="btn btn-outline" id="reportBtn">
+          <i class="fas fa-chart-simple"></i> Mesai Raporum
+        </button>
       </div>
     </div>
   </div>
