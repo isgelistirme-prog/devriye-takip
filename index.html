@@ -3,30 +3,27 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <meta name="theme-color" content="#0f172a">
+  <meta name="theme-color" content="#f97316">
   <title>Karakuş Devriye Yönetim Platformu</title>
   <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="style.css">
-  <!-- Google Fonts (Inter) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,600;14..32,700;14..32,800&display=swap" rel="stylesheet">
-  <!-- Font Awesome 6 (ücretsiz ikonlar) -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
 </head>
 <body>
-
   <div id="toastContainer" class="toast-container"></div>
 
-  <!-- Uyarı Modal -->
+  <!-- Uyarı / Bilgi Modal (Pop-up) -->
   <div id="alertModal" class="modal-overlay hidden">
     <div class="modal-content">
       <div class="modal-icon" id="modalIcon"><i class="fas fa-triangle-exclamation"></i></div>
       <h3 id="modalTitle">Sistem Uyarısı</h3>
       <p id="modalMessage"></p>
-      <button class="btn btn-primary" id="modalBtn">Okudum, Anladım</button>
+      <button class="btn btn-primary" id="modalBtn">Tamam</button>
     </div>
   </div>
 
@@ -34,14 +31,13 @@
   <div id="reportModal" class="modal-overlay hidden">
     <div class="modal-content" style="max-width: 500px; text-align: left; padding: 20px;">
       <h3 style="color: var(--primary); margin-bottom: 15px;"><i class="fas fa-chart-simple"></i> Mesai Geçmişim</h3>
-      <div id="reportContent" style="max-height: 400px; overflow-y: auto; font-size: 14px;">
+      <div id="reportContent" style="max-height: 400px; overflow-y: auto; font-size: 16px;">
         <p style="color: #666;">Yükleniyor...</p>
       </div>
       <button class="btn btn-primary" id="reportCloseBtn" style="margin-top: 20px;">Kapat</button>
     </div>
   </div>
 
-  <!-- Ana Uygulama -->
   <div class="container" id="app">
     <!-- GİRİŞ EKRANI -->
     <div id="loginScreen" class="login-screen">
@@ -61,25 +57,11 @@
         <div class="user-details">
           <div class="user-name" id="displayName">Yükleniyor...</div>
           <div class="network-status" id="networkStatus">
-            <i class="fas fa-circle" style="font-size: 8px; margin-right: 6px; color: var(--success);"></i> Çevrimiçi
+            <i class="fas fa-circle" style="font-size: 10px; margin-right: 6px; color: var(--success);"></i> Çevrimiçi
           </div>
         </div>
         <button class="btn-icon" id="logoutBtn" title="Çıkış Yap">
           <i class="fas fa-right-from-bracket"></i>
-        </button>
-      </div>
-
-      <!-- MESAİ KARTI -->
-      <div class="attendance-card" id="attendanceCard">
-        <div class="attendance-icon" id="attIcon">
-          <i class="fas fa-clock"></i>
-        </div>
-        <div class="attendance-info">
-          <div class="att-status" id="attStatus">Mesai başlatılmadı</div>
-          <div class="att-timer" id="attTimer">00:00:00</div>
-        </div>
-        <button class="btn-attendance" id="manualClockBtn">
-          <i class="fas fa-play"></i> Başlat
         </button>
       </div>
 
@@ -93,6 +75,18 @@
         <p id="scanResult" class="scan-status">
           <i class="fas fa-camera"></i> Sistem Hazır. Kamera bekleniyor...
         </p>
+      </div>
+
+      <!-- MESAİ KARTI (ALTTA, BÜYÜK VE ŞIK) -->
+      <div class="attendance-card" id="attendanceCard">
+        <div class="attendance-icon" id="attIcon">
+          <i class="fas fa-clock"></i>
+        </div>
+        <div class="attendance-info">
+          <div class="att-status" id="attStatus">Mesai başlatılmadı</div>
+          <div class="att-timer" id="attTimer">00:00:00</div>
+        </div>
+        <!-- Buton yok, sadece durum gösterimi -->
       </div>
 
       <!-- AKSİYON BUTONLARI -->
