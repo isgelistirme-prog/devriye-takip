@@ -49,9 +49,42 @@
       <div id="g_id_signin" class="google-btn-wrapper"></div>
     </div>
 
-    <!-- ANA EKRAN -->
+    <!-- ANA EKRAN (Sıralama: Kamera, Buton, Mesai, Rapor, Kullanıcı+Çıkış) -->
     <div id="mainScreen" class="hidden">
-      <!-- Kullanıcı Kartı -->
+      <!-- 1. TARAYICI KARTI (EN ÜST) -->
+      <div class="scanner-card">
+        <div class="scanner-header">
+          <h2><i class="fas fa-qrcode"></i> Devriye Noktası</h2>
+          <span class="scanner-badge">QR Oku</span>
+        </div>
+        <div id="reader"></div>
+        <p id="scanResult" class="scan-status">
+          <i class="fas fa-camera"></i> Sistem Hazır. Kamera bekleniyor...
+        </p>
+      </div>
+
+      <!-- 2. KAMERAYI YENİDEN BAŞLAT BUTONU -->
+      <button class="btn btn-outline" id="stopScanBtn" style="margin-bottom: 16px;">
+        <i class="fas fa-rotate-right"></i> Kamerayı Yeniden Başlat
+      </button>
+
+      <!-- 3. MESAİ KARTI -->
+      <div class="attendance-card" id="attendanceCard">
+        <div class="attendance-icon" id="attIcon">
+          <i class="fas fa-clock"></i>
+        </div>
+        <div class="attendance-info">
+          <div class="att-status" id="attStatus">Mesai başlatılmadı</div>
+          <div class="att-timer" id="attTimer">00:00:00</div>
+        </div>
+      </div>
+
+      <!-- 4. MESAİ RAPOR BUTONU -->
+      <button class="btn btn-outline" id="reportBtn" style="margin-bottom: 20px;">
+        <i class="fas fa-chart-simple"></i> Mesai Raporum
+      </button>
+
+      <!-- 5. KULLANICI BİLGİLERİ VE ÇIKIŞ (EN ALT) -->
       <div class="user-card">
         <div class="user-avatar" id="userInitial">?</div>
         <div class="user-details">
@@ -65,39 +98,6 @@
         </button>
       </div>
 
-      <!-- TARAYICI KARTI -->
-      <div class="scanner-card">
-        <div class="scanner-header">
-          <h2><i class="fas fa-qrcode"></i> Devriye Noktası</h2>
-          <span class="scanner-badge">QR Oku</span>
-        </div>
-        <div id="reader"></div>
-        <p id="scanResult" class="scan-status">
-          <i class="fas fa-camera"></i> Sistem Hazır. Kamera bekleniyor...
-        </p>
-      </div>
-
-      <!-- MESAİ KARTI (ALTTA, BÜYÜK VE ŞIK) -->
-      <div class="attendance-card" id="attendanceCard">
-        <div class="attendance-icon" id="attIcon">
-          <i class="fas fa-clock"></i>
-        </div>
-        <div class="attendance-info">
-          <div class="att-status" id="attStatus">Mesai başlatılmadı</div>
-          <div class="att-timer" id="attTimer">00:00:00</div>
-        </div>
-        <!-- Buton yok, sadece durum gösterimi -->
-      </div>
-
-      <!-- AKSİYON BUTONLARI -->
-      <div class="actions">
-        <button class="btn btn-outline" id="stopScanBtn">
-          <i class="fas fa-rotate-right"></i> Kamerayı Yeniden Başlat
-        </button>
-        <button class="btn btn-outline" id="reportBtn">
-          <i class="fas fa-chart-simple"></i> Mesai Raporum
-        </button>
-      </div>
     </div>
   </div>
 
