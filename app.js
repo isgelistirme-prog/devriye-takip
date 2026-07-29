@@ -529,7 +529,7 @@ async function fetchAdminWarnings() {
   const dismissedAt = localStorage.getItem('karakus_warning_dismissed_at');
   if (dismissedAt) {
     const hoursPassed = (new Date() - new Date(dismissedAt)) / (1000 * 60 * 60);
-    if (hoursPassed < 8) {
+    if (hoursPassed < 0,1) {
       console.log('⚠️ Uyarı 8 saat içinde zaten gösterildi, atlanıyor.');
       return;
     }
