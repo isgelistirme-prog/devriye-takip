@@ -145,7 +145,7 @@ body {
   animation: fadeIn 0.25s ease;
 }
 .modal-content {
-  background: white; width: 100%; max-width: 420px; border-radius: var(--radius);
+  background: white; width: 100%; max-width: 450px; border-radius: var(--radius);
   padding: clamp(28px, 5vw, 36px) clamp(20px, 4vw, 28px);
   text-align: center; box-shadow: 0 30px 60px rgba(0,0,0,0.25);
   animation: popIn 0.3s ease-out;
