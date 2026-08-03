@@ -17,7 +17,7 @@
 <body>
   <div id="toastContainer" class="toast-container"></div>
 
-  <!-- Uyarı / Bilgi Modal (Pop-up) -->
+  <!-- Uyarı / Bilgi Modal -->
   <div id="alertModal" class="modal-overlay hidden">
     <div class="modal-content">
       <div class="modal-icon" id="modalIcon"><i class="fas fa-triangle-exclamation"></i></div>
@@ -27,12 +27,12 @@
     </div>
   </div>
 
-  <!-- Rapor Modal -->
+  <!-- Rapor Modal (Yeni Tarih Seçiciler Eklendi) -->
   <div id="reportModal" class="modal-overlay hidden">
-    <div class="modal-content" style="max-width: 500px; text-align: left; padding: 20px;">
+    <div class="modal-content" style="max-width: 520px; text-align: left; padding: 24px 20px;">
       <h3 style="color: var(--primary); margin-bottom: 15px;"><i class="fas fa-chart-simple"></i> Mesai Geçmişim</h3>
-      <div id="reportContent" style="max-height: 400px; overflow-y: auto; font-size: 16px;">
-        <p style="color: #666;">Yükleniyor...</p>
+      <div id="reportContent" style="font-size: 16px;">
+        <!-- Rapor içeriği buraya dinamik yüklenir -->
       </div>
       <button class="btn btn-primary" id="reportCloseBtn" style="margin-top: 20px;">Kapat</button>
     </div>
@@ -49,9 +49,9 @@
       <div id="g_id_signin" class="google-btn-wrapper"></div>
     </div>
 
-    <!-- ANA EKRAN (Sıralama: Kamera, Buton, Mesai, Rapor, Kullanıcı+Çıkış) -->
+    <!-- ANA EKRAN -->
     <div id="mainScreen" class="hidden">
-      <!-- 1. TARAYICI KARTI (EN ÜST) -->
+      <!-- 1. TARAYICI KARTI -->
       <div class="scanner-card">
         <div class="scanner-header">
           <h2><i class="fas fa-qrcode"></i> Devriye Noktası</h2>
@@ -63,7 +63,7 @@
         </p>
       </div>
 
-      <!-- 2. KAMERAYI YENİDEN BAŞLAT BUTONU -->
+      <!-- 2. KAMERAYI YENİDEN BAŞLAT -->
       <button class="btn btn-outline" id="stopScanBtn" style="margin-bottom: 16px;">
         <i class="fas fa-rotate-right"></i> Kamerayı Yeniden Başlat
       </button>
@@ -84,7 +84,7 @@
         <i class="fas fa-chart-simple"></i> Mesai Raporum
       </button>
 
-      <!-- 5. KULLANICI BİLGİLERİ VE ÇIKIŞ (EN ALT) -->
+      <!-- 5. KULLANICI VE ÇIKIŞ -->
       <div class="user-card">
         <div class="user-avatar" id="userInitial">?</div>
         <div class="user-details">
