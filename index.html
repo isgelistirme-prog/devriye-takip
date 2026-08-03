@@ -17,7 +17,7 @@
 <body>
   <div id="toastContainer" class="toast-container"></div>
 
-  <!-- ================= UYARI / BİLGİ MODAL (SİSTEM GENELİ) ================= -->
+  <!-- ================= SİSTEM GENEL BİLGİLENDİRME MODAL ================= -->
   <div id="alertModal" class="modal-overlay hidden">
     <div class="modal-content">
       <div class="modal-icon" id="modalIcon"><i class="fas fa-triangle-exclamation"></i></div>
@@ -27,7 +27,33 @@
     </div>
   </div>
 
-  <!-- ================= MESAİ İŞLEM SEÇİM MODAL (YENİ) ================= -->
+  <!-- ================= DEVRİYE KAYIT BİLDİRİM MODAL (YENİ) ================= -->
+  <div id="devriyeActionModal" class="modal-overlay hidden">
+    <div class="modal-content" style="padding: 40px 20px;">
+      <div class="modal-icon" id="devriyeIcon" style="font-size: 48px; margin-bottom: 20px;">
+        <i class="fas fa-spinner fa-spin" style="color: var(--primary);"></i>
+      </div>
+      <h3 id="devriyeTitle" style="color: var(--primary-dark); font-size: 20px;">İşlem Yapılıyor...</h3>
+      <p id="devriyeMessage" style="color: var(--text-secondary); font-size: 16px;">Lütfen bekleyiniz, kayıt oluşturuluyor.</p>
+    </div>
+  </div>
+
+  <!-- ================= GPS KONUM YÜKLEME MODAL (YENİ) ================= -->
+  <div id="gpsLoadingModal" class="modal-overlay hidden">
+    <div class="modal-content" style="padding: 40px 20px;">
+      <div class="modal-icon" style="font-size: 48px; margin-bottom: 20px;">
+        <i class="fas fa-map-pin fa-spin" style="color: var(--primary);"></i>
+      </div>
+      <h3 id="gpsLoadingTitle" style="color: var(--primary-dark); font-size: 20px; margin-bottom: 15px;">Konum Alınıyor</h3>
+      <p id="gpsLoadingMessage" style="color: var(--text-secondary); font-size: 16px; line-height: 1.6;">
+        Lütfen bekleyiniz.<br><br>
+        GPS konumunuz doğrulanıyor.<br>
+        İşlem tamamlandıktan sonra kayıt otomatik olarak oluşturulacaktır.
+      </p>
+    </div>
+  </div>
+
+  <!-- ================= MESAİ İŞLEM SEÇİM MODAL ================= -->
   <div id="shiftActionModal" class="modal-overlay hidden">
     <div class="modal-content shift-modal-content">
       <h3 style="color: var(--primary-dark); margin-bottom: 20px;">Mesai İşlemi Seçin</h3>
@@ -42,7 +68,7 @@
     </div>
   </div>
 
-  <!-- ================= MESAİ BİTİR ONAY MODAL (YENİ) ================= -->
+  <!-- ================= MESAİ BİTİR ONAY MODAL ================= -->
   <div id="confirmEndModal" class="modal-overlay hidden">
     <div class="modal-content">
       <div class="modal-icon"><i class="fas fa-clock" style="color: var(--warning);"></i></div>
@@ -55,7 +81,7 @@
     </div>
   </div>
 
-  <!-- ================= RAPOR MODAL (GÜNCELLENDİ) ================= -->
+  <!-- ================= RAPOR MODAL ================= -->
   <div id="reportModal" class="modal-overlay hidden">
     <div class="modal-content" style="max-width: 600px; text-align: left; padding: 24px 20px;">
       <h3 style="color: var(--primary); margin-bottom: 15px;"><i class="fas fa-chart-simple"></i> Mesai Geçmişim</h3>
