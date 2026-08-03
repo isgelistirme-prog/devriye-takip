@@ -1,10 +1,8 @@
-/* ===== ROOT ===== */
 :root {
   --primary: #f97316;
   --primary-light: #fb923c;
   --primary-dark: #ea580c;
   --primary-bg: #fff7ed;
-  --secondary: #3b82f6;
   --success: #22c55e;
   --error: #ef4444;
   --warning: #f59e0b;
@@ -15,7 +13,6 @@
   --border: #fbd38d;
   --radius: 20px;
   --shadow: 0 8px 30px rgba(249, 115, 22, 0.12);
-  --shadow-hover: 0 12px 40px rgba(249, 115, 22, 0.2);
   --transition: 0.3s ease;
   --font-base: clamp(15px, 2.2vw, 18px);
   --font-large: clamp(18px, 2.8vw, 24px);
@@ -23,7 +20,6 @@
   --font-timer: clamp(28px, 5vw, 40px);
 }
 
-/* ===== RESET ===== */
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body {
   font-family: 'Inter', -apple-system, system-ui, sans-serif;
@@ -39,7 +35,6 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* ===== KONTEYNER ===== */
 .container {
   width: 100%;
   max-width: 500px;
@@ -53,14 +48,11 @@ body {
   overflow-y: auto;
 }
 
-/* ===== GİRİŞ EKRANI ===== */
-.login-screen {
-  text-align: center;
-  padding: 10px 0;
-}
-.login-brand {
-  margin-bottom: 24px;
-}
+.hidden { display: none !important; }
+
+/* ----- GİRİŞ ----- */
+.login-screen { text-align: center; padding: 10px 0; }
+.login-brand { margin-bottom: 24px; }
 .login-logo {
   width: clamp(100px, 25vw, 130px);
   height: clamp(100px, 25vw, 130px);
@@ -69,27 +61,11 @@ body {
   box-shadow: 0 8px 24px rgba(249, 115, 22, 0.15);
   margin-bottom: 12px;
 }
-.login-brand h1 {
-  font-size: var(--font-xl);
-  font-weight: 800;
-  color: var(--primary-dark);
-  letter-spacing: -0.5px;
-}
-.login-brand .subtitle {
-  color: var(--text-secondary);
-  font-size: var(--font-base);
-  margin-top: 2px;
-}
-.google-btn-wrapper {
-  display: flex;
-  justify-content: center;
-  min-height: 54px;
-}
+.login-brand h1 { font-size: var(--font-xl); font-weight: 800; color: var(--primary-dark); letter-spacing: -0.5px; }
+.login-brand .subtitle { color: var(--text-secondary); font-size: var(--font-base); margin-top: 2px; }
+.google-btn-wrapper { display: flex; justify-content: center; min-height: 54px; }
 
-/* ===== ANA EKRAN ===== */
-.hidden { display: none !important; }
-
-/* ----- Tarayıcı Kartı (EN ÜST) ----- */
+/* ----- TARAYICI ----- */
 .scanner-card {
   background: #fafafa;
   border-radius: var(--radius);
@@ -98,317 +74,128 @@ body {
   margin-bottom: 12px;
 }
 .scanner-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 10px;
+  display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;
 }
-.scanner-header h2 {
-  font-size: var(--font-large);
-  font-weight: 700;
-  color: var(--primary-dark);
-}
-.scanner-header h2 i {
-  color: var(--primary);
-  margin-right: 8px;
-}
+.scanner-header h2 { font-size: var(--font-large); font-weight: 700; color: var(--primary-dark); }
 .scanner-badge {
-  background: var(--primary);
-  color: white;
-  font-size: clamp(10px, 1.4vw, 12px);
-  font-weight: 700;
-  padding: 4px 14px;
-  border-radius: 30px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  background: var(--primary); color: white; font-size: clamp(10px, 1.4vw, 12px);
+  font-weight: 700; padding: 4px 14px; border-radius: 30px; text-transform: uppercase;
 }
 #reader {
-  width: 100%;
-  border-radius: 14px;
-  overflow: hidden;
-  background: #0f172a;
-  border: 3px solid var(--border);
-  min-height: clamp(180px, 35vh, 260px);
-  position: relative;
+  width: 100%; border-radius: 14px; overflow: hidden; background: #0f172a;
+  border: 3px solid var(--border); min-height: clamp(180px, 35vh, 260px); position: relative;
 }
-.scan-status {
-  margin-top: 12px;
-  font-weight: 600;
-  font-size: var(--font-base);
-  color: var(--text-secondary);
-  text-align: center;
-}
-.scan-status i {
-  margin-right: 6px;
-  color: var(--primary);
-}
+.scan-status { margin-top: 12px; font-weight: 600; font-size: var(--font-base); color: var(--text-secondary); text-align: center; }
 
-/* ----- Butonlar ----- */
+/* ----- BUTONLAR ----- */
 .btn {
-  width: 100%;
-  padding: clamp(14px, 2.5vh, 18px);
-  border-radius: 16px;
-  font-size: var(--font-base);
-  font-weight: 700;
-  border: none;
-  cursor: pointer;
-  transition: var(--transition);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 8px;
+  width: 100%; padding: clamp(14px, 2.5vh, 18px); border-radius: 16px;
+  font-size: var(--font-base); font-weight: 700; border: none; cursor: pointer;
+  transition: var(--transition); display: flex; justify-content: center; align-items: center; gap: 8px;
 }
 .btn:active { transform: scale(0.97); }
-.btn-primary {
-  background: var(--primary);
-  color: white;
-}
-.btn-primary:hover {
-  background: var(--primary-dark);
-  box-shadow: 0 4px 16px rgba(249, 115, 22, 0.3);
-}
-.btn-outline {
-  background: transparent;
-  border: 2px solid var(--border);
-  color: var(--text);
-}
-.btn-outline:hover {
-  background: var(--primary-bg);
-  border-color: var(--primary);
-  color: var(--primary-dark);
-}
+.btn-primary { background: var(--primary); color: white; }
+.btn-primary:hover { background: var(--primary-dark); box-shadow: 0 4px 16px rgba(249, 115, 22, 0.3); }
+.btn-outline { background: transparent; border: 2px solid var(--border); color: var(--text); }
+.btn-outline:hover { background: var(--primary-bg); border-color: var(--primary); color: var(--primary-dark); }
+.btn-success { background: var(--success); color: white; }
+.btn-success:hover { opacity: 0.9; }
+.btn-danger { background: var(--error); color: white; }
+.btn-danger:hover { opacity: 0.9; }
 
-/* ----- Mesai Kartı ----- */
+/* ----- MESAİ KARTI ----- */
 .attendance-card {
-  background: linear-gradient(135deg, #fff7ed, #ffedd5);
-  border-radius: var(--radius);
+  background: linear-gradient(135deg, #fff7ed, #ffedd5); border-radius: var(--radius);
   padding: clamp(14px, 2vh, 20px) clamp(16px, 2.5vw, 24px);
-  display: flex;
-  align-items: center;
-  gap: clamp(12px, 2vw, 18px);
-  border: 2px solid #fed7aa;
-  margin: 12px 0 12px;
-  transition: var(--transition);
+  display: flex; align-items: center; gap: clamp(12px, 2vw, 18px);
+  border: 2px solid #fed7aa; margin: 12px 0 12px; transition: var(--transition);
 }
-.attendance-card.active {
-  border-color: var(--success);
-  background: linear-gradient(135deg, #ecfdf5, #d1fae5);
-}
+.attendance-card.active { border-color: var(--success); background: linear-gradient(135deg, #ecfdf5, #d1fae5); }
 .attendance-icon {
-  font-size: clamp(28px, 5vw, 38px);
-  width: clamp(48px, 8vw, 60px);
-  height: clamp(48px, 8vw, 60px);
-  background: rgba(255,255,255,0.7);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
+  font-size: clamp(28px, 5vw, 38px); width: clamp(48px, 8vw, 60px); height: clamp(48px, 8vw, 60px);
+  background: rgba(255,255,255,0.7); border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
 }
-.attendance-info {
-  flex: 1;
-}
-.att-status {
-  font-weight: 700;
-  font-size: var(--font-base);
-  color: var(--primary-dark);
-}
-.att-timer {
-  font-size: var(--font-timer);
-  font-weight: 800;
-  color: var(--primary-dark);
-  font-variant-numeric: tabular-nums;
-  letter-spacing: 1px;
-}
+.attendance-info { flex: 1; }
+.att-status { font-weight: 700; font-size: var(--font-base); color: var(--primary-dark); }
+.att-timer { font-size: var(--font-timer); font-weight: 800; color: var(--primary-dark); font-variant-numeric: tabular-nums; letter-spacing: 1px; }
 
-/* ----- Kullanıcı Kartı ----- */
+/* ----- KULLANICI KARTI ----- */
 .user-card {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  background: var(--primary-bg);
-  padding: clamp(12px, 1.8vh, 16px) clamp(14px, 2vw, 20px);
-  border-radius: var(--radius);
-  border: 1px solid var(--border);
-  margin-top: 10px;
+  display: flex; align-items: center; gap: 14px;
+  background: var(--primary-bg); padding: clamp(12px, 1.8vh, 16px) clamp(14px, 2vw, 20px);
+  border-radius: var(--radius); border: 1px solid var(--border); margin-top: 10px;
 }
 .user-avatar {
-  width: clamp(42px, 7vw, 54px);
-  height: clamp(42px, 7vw, 54px);
+  width: clamp(42px, 7vw, 54px); height: clamp(42px, 7vw, 54px);
   background: linear-gradient(135deg, var(--primary), var(--primary-light));
-  color: white;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: clamp(18px, 3vw, 24px);
-  font-weight: 700;
-  flex-shrink: 0;
+  color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  font-size: clamp(18px, 3vw, 24px); font-weight: 700; flex-shrink: 0;
 }
-.user-details {
-  flex: 1;
-  min-width: 0;
-}
-.user-name {
-  font-weight: 700;
-  font-size: var(--font-large);
-  color: var(--primary-dark);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.network-status {
-  font-size: clamp(13px, 1.8vw, 15px);
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  color: var(--success);
-}
-.btn-icon {
-  background: transparent;
-  border: none;
-  color: var(--text-secondary);
-  font-size: clamp(18px, 3vw, 22px);
-  cursor: pointer;
-  padding: 6px 8px;
-  border-radius: 10px;
-  transition: var(--transition);
-}
-.btn-icon:hover {
-  background: #fee2e2;
-  color: var(--error);
-}
+.user-details { flex: 1; min-width: 0; }
+.user-name { font-weight: 700; font-size: var(--font-large); color: var(--primary-dark); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.network-status { font-size: clamp(13px, 1.8vw, 15px); font-weight: 600; display: flex; align-items: center; color: var(--success); }
+.btn-icon { background: transparent; border: none; color: var(--text-secondary); font-size: clamp(18px, 3vw, 22px); cursor: pointer; padding: 6px 8px; border-radius: 10px; transition: var(--transition); }
+.btn-icon:hover { background: #fee2e2; color: var(--error); }
 
-/* ===== MODAL ===== */
+/* ================= MODALLAR (3D Butonlar ve Onay Modalı) ================= */
 .modal-overlay {
-  position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0, 0, 0, 0.55);
-  backdrop-filter: blur(6px);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 9999;
-  padding: 20px;
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(6px);
+  display: flex; justify-content: center; align-items: center; z-index: 9999; padding: 20px;
   animation: fadeIn 0.25s ease;
 }
 .modal-content {
-  background: white;
-  width: 100%;
-  max-width: 420px;
-  border-radius: var(--radius);
+  background: white; width: 100%; max-width: 420px; border-radius: var(--radius);
   padding: clamp(28px, 5vw, 36px) clamp(20px, 4vw, 28px);
-  text-align: center;
-  box-shadow: 0 30px 60px rgba(0,0,0,0.25);
+  text-align: center; box-shadow: 0 30px 60px rgba(0,0,0,0.25);
   animation: popIn 0.3s ease-out;
 }
-.modal-icon {
-  font-size: clamp(40px, 7vw, 52px);
-  margin-bottom: 12px;
-  color: var(--primary);
-}
-#modalTitle {
-  color: var(--primary-dark);
-  margin-bottom: 8px;
-  font-size: var(--font-large);
-  font-weight: 800;
-}
-#modalMessage {
-  color: var(--text-secondary);
-  font-size: var(--font-base);
-  line-height: 1.6;
-  margin-bottom: 24px;
-}
-.modal-content .btn {
-  font-size: var(--font-base);
-  padding: clamp(14px, 2.2vh, 18px);
-}
+.modal-icon { font-size: clamp(40px, 7vw, 52px); margin-bottom: 12px; color: var(--primary); }
+#modalTitle { color: var(--primary-dark); margin-bottom: 8px; font-size: var(--font-large); font-weight: 800; }
+#modalMessage { color: var(--text-secondary); font-size: var(--font-base); line-height: 1.6; margin-bottom: 24px; }
 
-/* Rapor Modal */
-#reportModal .modal-content {
-  max-width: 520px;
-  text-align: left;
-  padding: 24px 20px;
-}
-#reportContent {
-  max-height: 500px;
-  overflow-y: auto;
-  font-size: var(--font-base);
-}
-#reportContent table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: clamp(14px, 2vw, 16px);
-}
-#reportContent th {
-  background: var(--primary-dark);
-  color: white;
-  padding: 10px 12px;
-  font-weight: 700;
-  font-size: clamp(12px, 1.6vw, 14px);
-  text-align: left;
-}
-#reportContent td {
-  padding: 10px 12px;
-  border-bottom: 1px solid var(--border);
-}
-#reportContent .empty {
-  color: var(--text-secondary);
-  text-align: center;
-  padding: 24px;
-  font-size: var(--font-base);
-}
+/* ----- MESAİ İŞLEM SEÇİM MODAL (3D BUTONLAR) ----- */
+.shift-modal-content { display: flex; flex-direction: column; gap: 16px; align-items: center; }
+.shift-action-buttons { display: flex; flex-direction: column; gap: 20px; width: 100%; max-width: 280px; }
 
-/* ===== TOAST ===== */
+.btn-3d {
+  display: flex; align-items: center; justify-content: center; gap: 12px;
+  width: 100%; padding: 18px 20px; border: none; border-radius: 16px;
+  font-size: 20px; font-weight: 800; color: white; cursor: pointer;
+  transition: all 0.15s ease; box-shadow: 0 8px 0 rgba(0,0,0,0.2), 0 10px 20px rgba(0,0,0,0.1);
+  text-transform: uppercase; letter-spacing: 0.5px;
+}
+.btn-3d:active { transform: translateY(6px); box-shadow: 0 2px 0 rgba(0,0,0,0.2); }
+.btn-3d-start { background: linear-gradient(145deg, #22c55e, #16a34a); box-shadow: 0 8px 0 #0f7b33, 0 10px 20px rgba(0,0,0,0.1); }
+.btn-3d-start:active { box-shadow: 0 2px 0 #0f7b33; }
+.btn-3d-end { background: linear-gradient(145deg, #f87171, #dc2626); box-shadow: 0 8px 0 #991b1b, 0 10px 20px rgba(0,0,0,0.1); }
+.btn-3d-end:active { box-shadow: 0 2px 0 #991b1b; }
+
+/* ----- RAPOR MODAL ----- */
+#reportModal .modal-content { max-width: 600px; text-align: left; padding: 24px 20px; }
+#reportContent { max-height: 500px; overflow-y: auto; font-size: var(--font-base); }
+#reportContent table { width: 100%; border-collapse: collapse; font-size: clamp(13px, 2vw, 15px); }
+#reportContent th { background: var(--primary-dark); color: white; padding: 8px 12px; font-weight: 700; font-size: clamp(11px, 1.6vw, 13px); text-align: left; }
+#reportContent td { padding: 8px 12px; border-bottom: 1px solid var(--border); }
+#reportContent .empty { color: var(--text-secondary); text-align: center; padding: 24px; }
+
+/* ----- TOAST ----- */
 .toast-container {
-  position: fixed;
-  top: 16px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 10000;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  width: 92%;
-  max-width: 420px;
+  position: fixed; top: 16px; left: 50%; transform: translateX(-50%);
+  z-index: 10000; display: flex; flex-direction: column; gap: 10px; width: 92%; max-width: 420px;
 }
 .toast {
-  padding: clamp(14px, 2.2vh, 18px) clamp(18px, 3vw, 24px);
-  border-radius: 14px;
-  color: white;
-  font-weight: 600;
-  font-size: var(--font-base);
-  box-shadow: 0 8px 24px rgba(0,0,0,0.15);
-  animation: slideDown 0.35s ease forwards;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  backdrop-filter: blur(4px);
+  padding: clamp(14px, 2.2vh, 18px) clamp(18px, 3vw, 24px); border-radius: 14px;
+  color: white; font-weight: 600; font-size: var(--font-base);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.15); animation: slideDown 0.35s ease forwards;
+  display: flex; align-items: center; gap: 12px; backdrop-filter: blur(4px);
 }
 .toast.success { background: var(--success); }
 .toast.error { background: var(--error); }
 .toast.warning { background: var(--warning); }
 
-/* ===== ANİMASYONLAR ===== */
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-@keyframes popIn {
-  0% { transform: scale(0.92); opacity: 0; }
-  100% { transform: scale(1); opacity: 1; }
-}
-@keyframes slideDown {
-  0% { transform: translateY(-50px); opacity: 0; }
-  100% { transform: translateY(0); opacity: 1; }
-}
-@keyframes fadeOut {
-  100% { opacity: 0; transform: translateY(10px); }
-}
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes popIn { 0% { transform: scale(0.92); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+@keyframes slideDown { 0% { transform: translateY(-50px); opacity: 0; } 100% { transform: translateY(0); opacity: 1; } }
 
-/* ===== RESPONSIVE ===== */
-@media (max-width: 420px) {
-  .container { padding: 14px 12px 18px; }
-  #reader { min-height: 180px; }
-  .att-timer { font-size: var(--font-timer); }
-}
+@media (max-width: 420px) { .container { padding: 14px 12px 18px; } #reader { min-height: 180px; } .att-timer { font-size: var(--font-timer); } }
