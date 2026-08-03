@@ -1,14 +1,14 @@
 /**
- * KARAKUŞ PLATFORM - FRONTEND ENGINE (Mesai sadece QR, uyarılar mesai başlangıcında)
+ * KARAKUŞ PLATFORM - FRONTEND ENGINE (Profesyonel Mesai Yönetimi)
  */
 const CONFIG = {
   SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbyXnLMCDiqyPHkM36MiLKo43SWCEeJTeMoKr_ZxHxA3SI_i71JyAuQciTDCpIr6DU9mUQ/exec',
   CLIENT_ID: '653251016114-4340l82dqeldg25umf3749gr9b4aj8gn.apps.googleusercontent.com'
 };
 
-const ATTENDANCE_KEY = 'karakus_attendance';
-const OFFLINE_ATT_KEY = 'karakus_offline_attendance';
-const ATT_HISTORY_KEY = 'karakus_attendance_history';
+const CURRENT_SHIFT_KEY = 'karakus_current_shift';
+const SHIFT_HISTORY_KEY = 'karakus_shift_history';
+const OFFLINE_SHIFT_KEY = 'karakus_offline_shifts';
 
 let currentUser = JSON.parse(localStorage.getItem('karakus_user'));
 let html5QrCode = null;
@@ -95,7 +95,6 @@ function onLoginSuccess() {
   syncOfflineData();
   initScanner();
   updateAttendanceUI();
-  // Rapor butonu
   document.getElementById('reportBtn').addEventListener('click', showReport);
 }
 
@@ -113,9 +112,9 @@ function initNetworkListeners() {
 }
 
 async function syncOfflineData() {
+  // Devriye senkronizasyonu (korundu)
   const offlineScans = JSON.parse(localStorage.getItem('karakus_offline_scans') || '[]');
   if (offlineScans.length > 0 && navigator.onLine) {
-    showToast(`${offlineScans.length} çevrimdışı devriye kaydı senkronize ediliyor...`, 'warning');
     try {
       await fetch(CONFIG.SCRIPT_URL, { method: 'POST', body: JSON.stringify({ action: 'syncOffline', scans: offlineScans }) });
       localStorage.removeItem('karakus_offline_scans');
@@ -123,36 +122,34 @@ async function syncOfflineData() {
     } catch (e) { console.error("Sync hatası", e); }
   }
 
-  const offlineAtt = JSON.parse(localStorage.getItem(OFFLINE_ATT_KEY) || '[]');
-  if (offlineAtt.length > 0 && navigator.onLine) {
-    showToast(`${offlineAtt.length} mesai kaydı senkronize ediliyor...`, 'warning');
+  // Mesai senkronizasyonu (Yeni)
+  const offlineShifts = JSON.parse(localStorage.getItem(OFFLINE_SHIFT_KEY) || '[]');
+  if (offlineShifts.length > 0 && navigator.onLine) {
+    showToast(`${offlineShifts.length} mesai kaydı senkronize ediliyor...`, 'warning');
     try {
       await fetch(CONFIG.SCRIPT_URL, {
         method: 'POST',
-        body: JSON.stringify({ action: 'syncAttendance', records: offlineAtt })
+        body: JSON.stringify({ action: 'syncAttendance', records: offlineShifts })
       });
-      localStorage.removeItem(OFFLINE_ATT_KEY);
+      localStorage.removeItem(OFFLINE_SHIFT_KEY);
       showToast("Mesai kayıtları sunucuya aktarıldı.");
     } catch (e) { console.error('Mesai senkronizasyon hatası', e); }
   }
 }
 
-// ================= SCANNER =================
+// ================= SCANNER (Aynı) =================
 async function initScanner() {
   if (camState === 'starting' || camState === 'scanning') return;
   camState = 'starting';
   document.getElementById('scanResult').innerHTML = "⏳ Kamera başlatılıyor...";
-  
   try {
     if (html5QrCode) {
       await html5QrCode.stop().catch(()=>{});
       html5QrCode.clear();
     }
     html5QrCode = new Html5Qrcode("reader");
-    
     await html5QrCode.start({ facingMode: { exact: "environment" } }, { fps: 10, qrbox: { width: 250, height: 250 } }, onScanSuccess)
       .catch(() => html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: { width: 250, height: 250 } }, onScanSuccess));
-      
     camState = 'scanning';
     document.getElementById('scanResult').innerHTML = "🟢 Kamera aktif, barkod okutun.";
   } catch (err) {
@@ -174,8 +171,6 @@ document.getElementById('stopScanBtn').addEventListener('click', () => {
 // ================= QR OKUMA ve YÖNLENDİRME =================
 function onScanSuccess(decodedText) {
   if (camState === 'processing') return;
-  
-  // Geri bildirim (titreşim+ses)
   if (navigator.vibrate) navigator.vibrate(100);
   playBeep();
 
@@ -210,7 +205,7 @@ function playBeep() {
   } catch(e) {}
 }
 
-// ================= DEVRİYE KAYDI =================
+// ================= DEVRİYE KAYDI (Aynı) =================
 async function processScanPayload(qrText, lat, lng) {
   const payload = {
     action: 'saveScan', qrText: qrText, lat: lat, lng: lng,
@@ -249,76 +244,98 @@ function resumeScanner() {
   setTimeout(() => { camState = 'scanning'; }, 2000);
 }
 
-// ================= MESAİ YÖNETİMİ (SADECE QR) =================
+// ================= PROFESYONEL MESAİ YÖNETİMİ =================
+function generateShiftId() {
+  return Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+}
+
 async function handleAttendance(qrText) {
   const cleanText = qrText.trim().toUpperCase().replace(/İ/g, 'I');
-  if (cleanText !== 'MESAI') {
-    console.warn('Mesai QR değil:', cleanText);
-    return;
-  }
+  if (cleanText !== 'MESAI') return;
 
-  // Önce aktif uyarı var mı kontrol et (8 saat bekleme yok)
+  // Uyarı kontrolü
   const warning = await fetchAdminWarnings();
   if (warning) {
-    // Uyarı varsa göster ve kullanıcı "Tamam" dedikten sonra devam et
-    showModal('Yönetici Uyarısı', warning, 'warning', () => {
-      // Uyarı kapatıldı, mesai işlemine devam
-      processAttendance();
-    });
-    return; // Burada bekliyoruz, callback içinde processAttendance çağrılacak
-  } else {
-    // Uyarı yoksa direkt işleme
-    processAttendance();
+    showModal('Yönetici Uyarısı', warning, 'warning', () => processAttendance());
+    return;
   }
+  processAttendance();
 }
 
 function processAttendance() {
-  const att = JSON.parse(localStorage.getItem(ATTENDANCE_KEY) || '{"status":"idle"}');
-  
-  if (att.status === 'idle') {
-    // Mesai başlat
-    att.status = 'started';
-    att.startTime = new Date().toISOString();
-    att.endTime = null;
-    att.durationSeconds = 0;
-    localStorage.setItem(ATTENDANCE_KEY, JSON.stringify(att));
-    updateAttendanceUI();
-    showToast('✅ Mesainiz başladı!', 'success');
-    sendNotification('Mesai Başladı', 'Devriye görevinize başladınız. İyi çalışmalar!');
-    resumeScannerAfterAttendance();
-  } 
-  else if (att.status === 'started') {
-    const start = new Date(att.startTime);
-    const elapsed = (Date.now() - start.getTime()) / 1000 / 60; // dakika
-    if (elapsed < 0,1) { // 1 saat kontrolü
-      showModal('Mesai Bitişi', `Henüz 1 saat dolmadı (${Math.floor(elapsed)} dk). Bitiş için en az 1 saat beklemelisiniz.`, 'warning');
+  const currentShift = JSON.parse(localStorage.getItem(CURRENT_SHIFT_KEY));
+  const todayStr = new Date().toDateString();
+
+  // 1. Dünkü yarım kalan mesaiyi sıfırla
+  if (currentShift && new Date(currentShift.startTime).toDateString() !== todayStr && currentShift.status === 'started') {
+    localStorage.removeItem(CURRENT_SHIFT_KEY);
+    // Bu durumda yeni mesai başlatmaya zorla
+    startNewShift();
+    return;
+  }
+
+  // 2. Eğer aktif mesai yoksa başlat
+  if (!currentShift) {
+    startNewShift();
+    return;
+  }
+
+  // 3. Eğer mesai "started" ise bitir
+  if (currentShift.status === 'started') {
+    const start = new Date(currentShift.startTime);
+    const elapsedMin = (Date.now() - start.getTime()) / 1000 / 60;
+
+    // Minimum 1 saat kontrolü
+    if (elapsedMin < 1) {
+      showModal('Mesai Bitişi', `Henüz 1 saat dolmadı (${Math.floor(elapsedMin)} dk). Mesai bitirmek için en az 1 saat çalışmalısınız.`, 'warning');
       resumeScannerAfterAttendance();
       return;
     }
-    // Mesai bitir
-    att.status = 'ended';
-    att.endTime = new Date().toISOString();
-    att.durationSeconds = (Date.now() - start.getTime()) / 1000;
-    localStorage.setItem(ATTENDANCE_KEY, JSON.stringify(att));
-    addToHistory(att);
+
+    // Mesaiyi sonlandır
+    currentShift.status = 'ended';
+    currentShift.endTime = new Date().toISOString();
+    currentShift.durationSeconds = (Date.now() - start.getTime()) / 1000;
+    
+    // Yerel geçmişe ekle
+    addToHistory(currentShift);
+    // Sunucuya gönder (çevrimdışıysa kuyruğa al)
+    syncShiftToServer(currentShift);
+    
+    localStorage.removeItem(CURRENT_SHIFT_KEY);
     updateAttendanceUI();
-    const durationStr = formatDuration(att.durationSeconds);
-    showToast(`✅ Mesainiz tamamlandı! (${durationStr})`, 'success');
-    sendNotification('Mesai Bitti', `Bugünkü mesainiz ${durationStr} sürdü. Teşekkürler!`);
-    syncAttendanceToServer(att);
+
+    const durationStr = formatDuration(currentShift.durationSeconds);
+    showToast(`✅ Mesai tamamlandı! (${durationStr})`, 'success');
+    sendNotification('Mesai Bitti', `Bugünkü çalışmanız ${durationStr} sürdü.`);
     resumeScannerAfterAttendance();
-  } 
-  else if (att.status === 'ended') {
-    // Yeni mesai başlat (önceki bitmiş)
-    showModal('Yeni Mesai', 'Önceki mesai tamamlandı. Yeni mesai başlatılsın mı?', 'warning', () => {
-      const newAtt = { status: 'started', startTime: new Date().toISOString(), endTime: null, durationSeconds: 0 };
-      localStorage.setItem(ATTENDANCE_KEY, JSON.stringify(newAtt));
-      updateAttendanceUI();
-      showToast('✅ Yeni mesai başladı!', 'success');
-      sendNotification('Mesai Başladı', 'Yeni bir mesai dönemi başlatıldı.');
+    return;
+  }
+
+  // 4. Eğer mesai "ended" (daha önce bitmiş) ise yeni vardiya başlat
+  if (currentShift.status === 'ended') {
+    showModal('Yeni Vardiya', 'Bir önceki mesai kaydınız tamamlandı. Yeni bir mesai (vardiya) başlatmak ister misiniz?', 'info', () => {
+      localStorage.removeItem(CURRENT_SHIFT_KEY);
+      startNewShift();
       resumeScannerAfterAttendance();
     });
   }
+}
+
+function startNewShift() {
+  const newShift = {
+    id: generateShiftId(),
+    startTime: new Date().toISOString(),
+    endTime: null,
+    durationSeconds: 0,
+    status: 'started',
+    email: currentUser.email,
+    name: currentUser.name
+  };
+  localStorage.setItem(CURRENT_SHIFT_KEY, JSON.stringify(newShift));
+  updateAttendanceUI();
+  showToast('✅ Mesai başlatıldı! Görev başlangıcı.', 'success');
+  sendNotification('Mesai Başladı', 'Çalışma süreniz başlatıldı.');
 }
 
 function resumeScannerAfterAttendance() {
@@ -328,97 +345,86 @@ function resumeScannerAfterAttendance() {
   }, 1500);
 }
 
-// ================= UYARI FONKSİYONU (8 saat kontrolü yok) =================
-async function fetchAdminWarnings() {
-  try {
-    const res = await fetch(CONFIG.SCRIPT_URL, { method: 'POST', body: JSON.stringify({ action: 'getWarning' }) });
-    const data = await res.json();
-    if (data.warning) {
-      // Uyarı varsa döndür, gösterimi arayüz yapacak
-      return data.warning;
-    }
-    return null;
-  } catch(e) {
-    console.error('Uyarı alınamadı:', e);
-    return null;
-  }
-}
-
 // ================= MESAİ GEÇMİŞİ VE SENKRONİZASYON =================
-function addToHistory(att) {
-  const history = JSON.parse(localStorage.getItem(ATT_HISTORY_KEY) || '[]');
+function addToHistory(shift) {
+  const history = JSON.parse(localStorage.getItem(SHIFT_HISTORY_KEY) || '[]');
   history.push({
-    startTime: att.startTime,
-    endTime: att.endTime,
-    durationSeconds: att.durationSeconds,
-    date: new Date(att.startTime).toLocaleDateString('tr-TR')
+    id: shift.id,
+    startTime: shift.startTime,
+    endTime: shift.endTime,
+    durationSeconds: shift.durationSeconds,
+    name: shift.name,
+    email: shift.email,
+    date: new Date(shift.startTime).toLocaleDateString('tr-TR')
   });
-  localStorage.setItem(ATT_HISTORY_KEY, JSON.stringify(history));
+  localStorage.setItem(SHIFT_HISTORY_KEY, JSON.stringify(history));
 }
 
-async function syncAttendanceToServer(att) {
+async function syncShiftToServer(shift) {
+  const payload = {
+    action: 'clockOut',
+    email: currentUser.email,
+    name: currentUser.name,
+    startTime: shift.startTime,
+    endTime: shift.endTime,
+    durationSeconds: shift.durationSeconds
+  };
+
   if (!navigator.onLine) {
-    const offline = JSON.parse(localStorage.getItem(OFFLINE_ATT_KEY) || '[]');
-    offline.push({
-      email: currentUser.email,
-      name: currentUser.name,
-      startTime: att.startTime,
-      endTime: att.endTime,
-      durationSeconds: att.durationSeconds
-    });
-    localStorage.setItem(OFFLINE_ATT_KEY, JSON.stringify(offline));
+    const offline = JSON.parse(localStorage.getItem(OFFLINE_SHIFT_KEY) || '[]');
+    offline.push(payload);
+    localStorage.setItem(OFFLINE_SHIFT_KEY, JSON.stringify(offline));
     return;
   }
 
   try {
     await fetch(CONFIG.SCRIPT_URL, {
       method: 'POST',
-      body: JSON.stringify({
-        action: 'clockOut',
-        email: currentUser.email,
-        name: currentUser.name,
-        startTime: att.startTime,
-        endTime: att.endTime,
-        durationSeconds: att.durationSeconds
-      })
+      body: JSON.stringify(payload)
     });
   } catch(e) {
     console.warn('Mesai senkronizasyon hatası', e);
-    const offline = JSON.parse(localStorage.getItem(OFFLINE_ATT_KEY) || '[]');
-    offline.push({
-      email: currentUser.email,
-      name: currentUser.name,
-      startTime: att.startTime,
-      endTime: att.endTime,
-      durationSeconds: att.durationSeconds
-    });
-    localStorage.setItem(OFFLINE_ATT_KEY, JSON.stringify(offline));
+    const offline = JSON.parse(localStorage.getItem(OFFLINE_SHIFT_KEY) || '[]');
+    offline.push(payload);
+    localStorage.setItem(OFFLINE_SHIFT_KEY, JSON.stringify(offline));
   }
 }
 
 // ================= MESAİ UI GÜNCELLEME =================
 function updateAttendanceUI() {
-  const att = JSON.parse(localStorage.getItem(ATTENDANCE_KEY) || '{"status":"idle"}');
+  const shift = JSON.parse(localStorage.getItem(CURRENT_SHIFT_KEY));
   const statusEl = document.getElementById('attStatus');
   const timerEl = document.getElementById('attTimer');
   const iconEl = document.getElementById('attIcon');
   
   if (timerInterval) clearInterval(timerInterval);
 
-  if (att.status === 'idle') {
-    statusEl.textContent = 'Mesai başlatılmadı';
-    timerEl.textContent = '00:00:00';
-    iconEl.innerHTML = '<i class="fas fa-clock"></i>';
-  } else if (att.status === 'started') {
+  if (!shift) {
+    // Tarihteki son bitmiş vardiyayı göstermek için history'ye bakalım
+    const history = JSON.parse(localStorage.getItem(SHIFT_HISTORY_KEY) || '[]');
+    const lastShift = history.length > 0 ? history[history.length - 1] : null;
+    if (lastShift && new Date(lastShift.startTime).toDateString() === new Date().toDateString()) {
+      statusEl.textContent = `Bugün son mesai: ${formatDuration(lastShift.durationSeconds)}`;
+      timerEl.textContent = formatDuration(lastShift.durationSeconds);
+      iconEl.innerHTML = '<i class="fas fa-flag-checkered" style="color: #ef4444;"></i>';
+    } else {
+      statusEl.textContent = 'Bugün mesai başlatılmadı';
+      timerEl.textContent = '00:00:00';
+      iconEl.innerHTML = '<i class="fas fa-clock"></i>';
+    }
+    return;
+  }
+
+  if (shift.status === 'started') {
     statusEl.textContent = 'Mesai devam ediyor';
     iconEl.innerHTML = '<i class="fas fa-play-circle" style="color: #22c55e;"></i>';
     timerInterval = setInterval(() => {
-      const elapsed = (Date.now() - new Date(att.startTime).getTime()) / 1000;
+      const elapsed = (Date.now() - new Date(shift.startTime).getTime()) / 1000;
       timerEl.textContent = formatDuration(elapsed);
     }, 1000);
-  } else if (att.status === 'ended') {
-    statusEl.textContent = `Mesai tamamlandı (${formatDuration(att.durationSeconds)})`;
-    timerEl.textContent = formatDuration(att.durationSeconds);
+  } else if (shift.status === 'ended') {
+    statusEl.textContent = `Mesai tamamlandı (${formatDuration(shift.durationSeconds)})`;
+    timerEl.textContent = formatDuration(shift.durationSeconds);
     iconEl.innerHTML = '<i class="fas fa-flag-checkered" style="color: #ef4444;"></i>';
   }
 }
@@ -430,52 +436,105 @@ function formatDuration(seconds) {
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
-// ================= RAPOR =================
+// ================= RAPOR (Yeni Profesyonel Yapı) =================
 async function showReport() {
   const modal = document.getElementById('reportModal');
   const content = document.getElementById('reportContent');
   modal.classList.remove('hidden');
-  content.innerHTML = '<p style="color:#666;">Yükleniyor...</p>';
 
-  let localHistory = JSON.parse(localStorage.getItem(ATT_HISTORY_KEY) || '[]');
-  if (navigator.onLine) {
+  content.innerHTML = `
+    <div style="display:flex; justify-content:center; gap:10px; margin-bottom:20px;">
+      <button class="btn btn-primary" onclick="fetchAndDisplayReport('week')" style="width:auto; padding:10px 18px;">📅 Bu Hafta</button>
+      <button class="btn btn-primary" onclick="fetchAndDisplayReport('month')" style="width:auto; padding:10px 18px;">📅 Bu Ay</button>
+    </div>
+    <div style="display:flex; justify-content:center; gap:10px; align-items:center; flex-wrap:wrap;">
+      <label style="font-size:14px; font-weight:600;">Özel Aralık:</label>
+      <input type="date" id="reportStartDate" style="padding:6px; border:1px solid var(--border); border-radius:8px;">
+      <span> - </span>
+      <input type="date" id="reportEndDate" style="padding:6px; border:1px solid var(--border); border-radius:8px;">
+      <button class="btn btn-primary" onclick="fetchAndDisplayReport('custom')" style="width:auto; padding:6px 14px;">Getir</button>
+    </div>
+    <div id="reportData" style="margin-top:20px; max-height:400px; overflow-y:auto;">
+      <p style="color:#666; text-align:center;">Yukarıdan rapor dönemi seçiniz.</p>
+    </div>
+  `;
+
+  window.fetchAndDisplayReport = async (type) => {
+    const dataDiv = document.getElementById('reportData');
+    dataDiv.innerHTML = '<p style="color:#666; text-align:center;">⏳ Veriler yükleniyor...</p>';
+
+    let startDate, endDate = new Date();
+    const now = new Date();
+    
+    if (type === 'week') {
+      const day = now.getDay() || 7;
+      startDate = new Date(now);
+      startDate.setDate(now.getDate() - day + 1);
+      startDate.setHours(0,0,0,0);
+      endDate = new Date(now);
+    } else if (type === 'month') {
+      startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      endDate = new Date(now);
+    } else if (type === 'custom') {
+      startDate = new Date(document.getElementById('reportStartDate').value);
+      endDate = new Date(document.getElementById('reportEndDate').value);
+      if (!startDate || !endDate || startDate > endDate) {
+        dataDiv.innerHTML = '<p style="color:red;">Lütfen geçerli bir tarih aralığı seçin.</p>';
+        return;
+      }
+      endDate.setHours(23,59,59,999);
+    }
+
     try {
       const res = await fetch(CONFIG.SCRIPT_URL, {
         method: 'POST',
-        body: JSON.stringify({ action: 'getAttendance', email: currentUser.email })
+        body: JSON.stringify({
+          action: 'getAttendance',
+          email: currentUser.email,
+          startDate: startDate.toISOString(),
+          endDate: endDate.toISOString()
+        })
       });
       const data = await res.json();
-      if (data.status === 'success' && data.records) {
-        const allRecords = [...localHistory, ...data.records];
-        const unique = allRecords.filter((v, i, a) => a.findIndex(t => t.startTime === v.startTime) === i);
-        localHistory = unique;
-        localStorage.setItem(ATT_HISTORY_KEY, JSON.stringify(localHistory));
+      
+      if (data.status === 'success' && data.records.length > 0) {
+        let totalSeconds = 0;
+        let html = `<table><thead><tr><th>Tarih</th><th>Başlangıç</th><th>Bitiş</th><th>Süre</th></tr></thead><tbody>`;
+        data.records.forEach(item => {
+          const start = new Date(item.startTime).toLocaleString('tr-TR');
+          const end = item.endTime ? new Date(item.endTime).toLocaleString('tr-TR') : 'Devam Ediyor';
+          const dur = formatDuration(item.durationSeconds || 0);
+          totalSeconds += item.durationSeconds || 0;
+          html += `<tr><td>${new Date(item.startTime).toLocaleDateString('tr-TR')}</td><td>${start}</td><td>${end}</td><td>${dur}</td></tr>`;
+        });
+        html += `</tbody></table>`;
+        html += `<div style="text-align:right; font-size:16px; font-weight:700; margin-top:10px;">Toplam Süre: <span style="color:var(--primary);">${formatDuration(totalSeconds)}</span></div>`;
+        dataDiv.innerHTML = html;
+      } else {
+        dataDiv.innerHTML = '<p class="empty">Bu döneme ait kayıt bulunamadı.</p>';
       }
-    } catch(e) {
-      console.warn('Sunucudan rapor alınamadı', e);
+    } catch (error) {
+      dataDiv.innerHTML = '<p style="color:red;">Rapor yüklenirken hata oluştu. Lütfen bağlantınızı kontrol edin.</p>';
     }
-  }
-
-  if (localHistory.length === 0) {
-    content.innerHTML = '<p class="empty">Henüz hiç mesai kaydınız yok.</p>';
-  } else {
-    let html = `<table><thead><tr><th>Tarih</th><th>Başlangıç</th><th>Bitiş</th><th>Süre</th></tr></thead><tbody>`;
-    localHistory.sort((a,b) => new Date(b.startTime) - new Date(a.startTime));
-    localHistory.forEach(item => {
-      const start = new Date(item.startTime).toLocaleString('tr-TR');
-      const end = item.endTime ? new Date(item.endTime).toLocaleString('tr-TR') : '-';
-      const dur = formatDuration(item.durationSeconds || 0);
-      const date = new Date(item.startTime).toLocaleDateString('tr-TR');
-      html += `<tr><td>${date}</td><td>${start}</td><td>${end}</td><td>${dur}</td></tr>`;
-    });
-    html += `</tbody></table>`;
-    content.innerHTML = html;
-  }
+  };
 }
 
 document.getElementById('reportCloseBtn').addEventListener('click', () => {
   document.getElementById('reportModal').classList.add('hidden');
 });
+
+// ================= UYARI FONKSİYONU =================
+async function fetchAdminWarnings() {
+  try {
+    const res = await fetch(CONFIG.SCRIPT_URL, { method: 'POST', body: JSON.stringify({ action: 'getWarning' }) });
+    const data = await res.json();
+    if (data.warning) return data.warning;
+    return null;
+  } catch(e) {
+    console.error('Uyarı alınamadı:', e);
+    return null;
+  }
+}
 
 // ================= PUSH BİLDİRİM =================
 function requestNotificationPermission() {
