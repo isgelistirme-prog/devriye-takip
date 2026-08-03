@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="theme-color" content="#f97316">
-  <title>Karakuş Devriye Yönetim Platformu</title>
+  <title>Karakuş Devriye ve Mesai Sistemi</title>
   <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="style.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -17,7 +17,7 @@
 <body>
   <div id="toastContainer" class="toast-container"></div>
 
-  <!-- Uyarı / Bilgi Modal -->
+  <!-- ================= UYARI / BİLGİ MODAL (SİSTEM GENELİ) ================= -->
   <div id="alertModal" class="modal-overlay hidden">
     <div class="modal-content">
       <div class="modal-icon" id="modalIcon"><i class="fas fa-triangle-exclamation"></i></div>
@@ -27,12 +27,40 @@
     </div>
   </div>
 
-  <!-- Rapor Modal (Yeni Tarih Seçiciler Eklendi) -->
+  <!-- ================= MESAİ İŞLEM SEÇİM MODAL (YENİ) ================= -->
+  <div id="shiftActionModal" class="modal-overlay hidden">
+    <div class="modal-content shift-modal-content">
+      <h3 style="color: var(--primary-dark); margin-bottom: 20px;">Mesai İşlemi Seçin</h3>
+      <div class="shift-action-buttons">
+        <button id="startShiftBtn" class="btn-3d btn-3d-start">
+          <i class="fas fa-play"></i> Mesai Başlat
+        </button>
+        <button id="endShiftBtn" class="btn-3d btn-3d-end">
+          <i class="fas fa-stop"></i> Mesai Bitir
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= MESAİ BİTİR ONAY MODAL (YENİ) ================= -->
+  <div id="confirmEndModal" class="modal-overlay hidden">
+    <div class="modal-content">
+      <div class="modal-icon"><i class="fas fa-clock" style="color: var(--warning);"></i></div>
+      <h3 id="modalTitle">Mesaiyi Sonlandır</h3>
+      <p id="modalMessage" style="margin-bottom: 20px;">Mesainiz sonlandırılacaktır.<br>Onaylıyor musunuz?</p>
+      <div style="display: flex; gap: 12px; justify-content: center;">
+        <button id="confirmEndYes" class="btn btn-success" style="width: auto; padding: 12px 24px;">Onayla</button>
+        <button id="confirmEndNo" class="btn btn-danger" style="width: auto; padding: 12px 24px;">Vazgeç</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= RAPOR MODAL (GÜNCELLENDİ) ================= -->
   <div id="reportModal" class="modal-overlay hidden">
-    <div class="modal-content" style="max-width: 520px; text-align: left; padding: 24px 20px;">
+    <div class="modal-content" style="max-width: 600px; text-align: left; padding: 24px 20px;">
       <h3 style="color: var(--primary); margin-bottom: 15px;"><i class="fas fa-chart-simple"></i> Mesai Geçmişim</h3>
-      <div id="reportContent" style="font-size: 16px;">
-        <!-- Rapor içeriği buraya dinamik yüklenir -->
+      <div id="reportContent" style="max-height: 500px; overflow-y: auto; font-size: 15px;">
+        <p style="color: #666;">Yükleniyor...</p>
       </div>
       <button class="btn btn-primary" id="reportCloseBtn" style="margin-top: 20px;">Kapat</button>
     </div>
@@ -51,11 +79,11 @@
 
     <!-- ANA EKRAN -->
     <div id="mainScreen" class="hidden">
-      <!-- 1. TARAYICI KARTI -->
+      <!-- TARAYICI KARTI -->
       <div class="scanner-card">
         <div class="scanner-header">
-          <h2><i class="fas fa-qrcode"></i> Devriye Noktası</h2>
-          <span class="scanner-badge">QR Oku</span>
+          <h2><i class="fas fa-qrcode"></i> QR Oku</h2>
+          <span class="scanner-badge">MESAI</span>
         </div>
         <div id="reader"></div>
         <p id="scanResult" class="scan-status">
@@ -63,28 +91,28 @@
         </p>
       </div>
 
-      <!-- 2. KAMERAYI YENİDEN BAŞLAT -->
+      <!-- KAMERAYI YENİDEN BAŞLAT -->
       <button class="btn btn-outline" id="stopScanBtn" style="margin-bottom: 16px;">
         <i class="fas fa-rotate-right"></i> Kamerayı Yeniden Başlat
       </button>
 
-      <!-- 3. MESAİ KARTI -->
+      <!-- MESAİ KARTI -->
       <div class="attendance-card" id="attendanceCard">
         <div class="attendance-icon" id="attIcon">
           <i class="fas fa-clock"></i>
         </div>
         <div class="attendance-info">
-          <div class="att-status" id="attStatus">Mesai başlatılmadı</div>
+          <div class="att-status" id="attStatus">Durum bekleniyor...</div>
           <div class="att-timer" id="attTimer">00:00:00</div>
         </div>
       </div>
 
-      <!-- 4. MESAİ RAPOR BUTONU -->
+      <!-- MESAİ RAPORUM BUTONU -->
       <button class="btn btn-outline" id="reportBtn" style="margin-bottom: 20px;">
         <i class="fas fa-chart-simple"></i> Mesai Raporum
       </button>
 
-      <!-- 5. KULLANICI VE ÇIKIŞ -->
+      <!-- KULLANICI VE ÇIKIŞ -->
       <div class="user-card">
         <div class="user-avatar" id="userInitial">?</div>
         <div class="user-details">
@@ -97,7 +125,6 @@
           <i class="fas fa-right-from-bracket"></i>
         </button>
       </div>
-
     </div>
   </div>
 
