@@ -1,30 +1,315 @@
 /**
- * KARAKUŞ PLATFORM - FRONTEND ENGINE (v8.0 Professional)
- * GPS ve Zaman Damgası (Barkod anı) zorunludur. Tüm işlemler anlık olarak sunucuya kaydedilir.
+ * KARAKUŞ PLATFORM - FRONTEND ENGINE (v9.0 Professional)
+ * Özellikler: Merkezi LocationManager, Transaction Queue, Retry Pattern, Exponential Backoff, Diagnostic Engine
+ * Kullanıcı teknik hata görmez, tüm işlemler arka planda çözülür.
  */
 const CONFIG = {
   SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbyXnLMCDiqyPHkM36MiLKo43SWCEeJTeMoKr_ZxHxA3SI_i71JyAuQciTDCpIr6DU9mUQ/exec',
-  CLIENT_ID: '653251016114-4340l82dqeldg25umf3749gr9b4aj8gn.apps.googleusercontent.com'
+  CLIENT_ID: '653251016114-4340l82dqeldg25umf3749gr9b4aj8gn.apps.googleusercontent.com',
+  LOCATION_RETRY_TIMES: [0, 5, 15, 30, 60, 120, 300, 600] // saniye cinsinden
 };
 
 const CURRENT_SHIFT_KEY = 'karakus_current_shift';
 const SHIFT_HISTORY_KEY = 'karakus_shift_history';
+const PENDING_TRANSACTIONS_KEY = 'karakus_pending_transactions';
 
 let currentUser = JSON.parse(localStorage.getItem('karakus_user'));
 let html5QrCode = null;
 let camState = 'idle';
 let timerInterval = null;
 let twelveHourNotified = false;
+let locationManager = null;
+let transactionQueue = null;
 
-window.onload = () => {
-  initNetworkListeners();
-  if (currentUser && currentUser.sessionToken) {
-    onLoginSuccess();
-  } else {
-    initializeGoogleLogin();
+// ====================== LOCATION MANAGER (Merkezi Konum Servisi) ======================
+class LocationManager {
+  constructor() {
+    this.watchId = null;
+    this.lastKnownLocation = null;
+    this.lastKnownTimestamp = null;
+    this.permissionState = 'prompt'; // prompt, granted, denied, unavailable
+    this.isWatching = false;
+    this.retryAttempt = 0;
+    this.errorCount = 0;
+    this.listeners = [];
+    this.maxRetrySeconds = 600; // 10 dakika
   }
-  requestNotificationPermission();
-};
+
+  startWatching() {
+    if (this.isWatching) return;
+    if (!navigator.geolocation) {
+      this.permissionState = 'unavailable';
+      return;
+    }
+    
+    this.isWatching = true;
+    this.watchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        this.lastKnownLocation = {
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+          accuracy: pos.coords.accuracy
+        };
+        this.lastKnownTimestamp = Date.now();
+        this.permissionState = 'granted';
+        this.errorCount = 0;
+        this.retryAttempt = 0;
+        this.notifyListeners('location_updated', this.lastKnownLocation);
+      },
+      (err) => {
+        this.errorCount++;
+        const code = err.code;
+        if (code === 1) {
+          this.permissionState = 'denied';
+        } else if (code === 2) {
+          this.permissionState = 'unavailable';
+        } else if (code === 3) {
+          this.permissionState = 'timeout';
+        }
+        this.notifyListeners('location_error', { code, message: err.message });
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
+    );
+  }
+
+  stopWatching() {
+    if (this.watchId !== null) {
+      navigator.geolocation.clearWatch(this.watchId);
+      this.watchId = null;
+    }
+    this.isWatching = false;
+  }
+
+  getCachedLocation() {
+    if (!this.lastKnownLocation) return null;
+    // Konum 2 dakikadan eskiyse geçersiz say
+    if (Date.now() - this.lastKnownTimestamp > 120000) return null;
+    return this.lastKnownLocation;
+  }
+
+  async forceGetLocation() {
+    return new Promise((resolve, reject) => {
+      if (!navigator.geolocation) {
+        reject({ error: 'unavailable' });
+        return;
+      }
+      
+      // İzin durumunu kontrol et
+      if (this.permissionState === 'denied') {
+        reject({ error: 'permission_denied' });
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          this.lastKnownLocation = {
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
+            accuracy: pos.coords.accuracy
+          };
+          this.lastKnownTimestamp = Date.now();
+          this.permissionState = 'granted';
+          resolve(this.lastKnownLocation);
+        },
+        (err) => {
+          this.errorCount++;
+          if (err.code === 1) this.permissionState = 'denied';
+          else if (err.code === 2) this.permissionState = 'unavailable';
+          else if (err.code === 3) this.permissionState = 'timeout';
+          reject({ error: this.permissionState, message: err.message });
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      );
+    });
+  }
+
+  addListener(callback) {
+    this.listeners.push(callback);
+  }
+
+  notifyListeners(type, data) {
+    this.listeners.forEach(cb => cb(type, data));
+  }
+
+  getDiagnosticData() {
+    return {
+      permissionState: this.permissionState,
+      errorCount: this.errorCount,
+      retryAttempt: this.retryAttempt,
+      hasLocation: !!this.lastKnownLocation,
+      locationAge: this.lastKnownTimestamp ? (Date.now() - this.lastKnownTimestamp) / 1000 : -1,
+      accuracy: this.lastKnownLocation ? this.lastKnownLocation.accuracy : -1,
+      platform: navigator.platform,
+      userAgent: navigator.userAgent,
+      isOnline: navigator.onLine,
+      isPWA: window.matchMedia('(display-mode: standalone)').matches || navigator.standalone
+    };
+  }
+}
+
+// ====================== TRANSACTION QUEUE (İşlem Kuyruğu Yönetimi) ======================
+class TransactionQueue {
+  constructor() {
+    this.queue = [];
+    this.isProcessing = false;
+    this.loadFromStorage();
+  }
+
+  loadFromStorage() {
+    try {
+      const stored = localStorage.getItem(PENDING_TRANSACTIONS_KEY);
+      if (stored) {
+        this.queue = JSON.parse(stored);
+        // Zaman aşımına uğramış işlemleri temizle (10 dakika)
+        const now = Date.now();
+        const maxAge = 600000; // 10 dakika
+        this.queue = this.queue.filter(tx => (now - tx.createdAt) < maxAge);
+        this.saveToStorage();
+      }
+    } catch (e) {
+      this.queue = [];
+    }
+  }
+
+  saveToStorage() {
+    try {
+      localStorage.setItem(PENDING_TRANSACTIONS_KEY, JSON.stringify(this.queue));
+    } catch (e) {
+      console.warn('Storage write failed:', e);
+    }
+  }
+
+  addTransaction(transaction) {
+    // Double submit ve Duplicate kontrolü
+    const exists = this.queue.find(tx => tx.transactionId === transaction.transactionId);
+    if (exists) return;
+    this.queue.push(transaction);
+    this.saveToStorage();
+    this.processQueue();
+  }
+
+  async processQueue() {
+    if (this.isProcessing || this.queue.length === 0) return;
+    this.isProcessing = true;
+
+    const pending = this.queue.filter(tx => !tx.isCompleted);
+    for (let tx of pending) {
+      await this.retryTransaction(tx);
+    }
+
+    this.isProcessing = false;
+    if (this.queue.length > 0) {
+      // Kalanlar varsa periyodik olarak devam et
+      setTimeout(() => this.processQueue(), 15000);
+    }
+  }
+
+  async retryTransaction(tx) {
+    const now = Date.now();
+    const elapsed = (now - tx.createdAt) / 1000;
+
+    // 10 dakika (600 saniye) dolduysa başarısız say
+    if (elapsed > 600) {
+      tx.isCompleted = true;
+      tx.isFailed = true;
+      tx.failureReason = 'timeout_expired';
+      this.saveToStorage();
+      await this.reportFailure(tx);
+      return;
+    }
+
+    // Exponential Backoff kontrolü
+    const nextInterval = CONFIG.LOCATION_RETRY_TIMES[tx.retryCount] || 600;
+    if (elapsed < nextInterval) return; // Henüz sırası gelmedi
+
+    const loc = locationManager.getCachedLocation();
+    if (loc) {
+      // Konum bulundu
+      tx.isCompleted = true;
+      tx.isFailed = false;
+      tx.location = loc;
+      this.saveToStorage();
+      await this.updateLocation(tx);
+      return;
+    }
+
+    // Hala yoksa ve izin reddedilmişse denemeyi bırak ve raporla
+    if (locationManager.permissionState === 'denied') {
+      tx.isCompleted = true;
+      tx.isFailed = true;
+      tx.failureReason = 'permission_denied';
+      this.saveToStorage();
+      await this.reportFailure(tx);
+      return;
+    }
+
+    // Yeniden dene
+    tx.retryCount++;
+    this.saveToStorage();
+    locationManager.retryAttempt = tx.retryCount;
+
+    try {
+      await locationManager.forceGetLocation();
+      // Başarılı olursa, bir sonraki döngüde yukarıdaki location check çalışacak
+    } catch (err) {
+      // Hata olursa bir sonraki zaman diliminde tekrar dene
+      console.log(`Retry ${tx.retryCount} for ${tx.transactionId} failed:`, err.error);
+    }
+  }
+
+  async updateLocation(tx) {
+    const payload = {
+      action: tx.type === 'shift_start' ? 'updateShiftLocation' : 'updateTransactionLocation',
+      transactionId: tx.transactionId,
+      lat: tx.location.lat,
+      lng: tx.location.lng,
+      accuracy: tx.location.accuracy
+    };
+    try {
+      const res = await fetch(CONFIG.SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
+      if (!res.ok) throw new Error('HTTP Error');
+      const data = await res.json();
+      if (data.status === 'success') {
+        showToast('Konum bilgisi sisteme başarıyla iletildi.', 'success');
+        this.removeFromQueue(tx.transactionId);
+      } else {
+        throw new Error(data.message);
+      }
+    } catch (e) {
+      console.error('Location update failed:', e);
+      // Ağ hatasında işlemi iptal etme, kuyrukta kalsın
+    }
+  }
+
+  async reportFailure(tx) {
+    const diagnostic = locationManager.getDiagnosticData();
+    diagnostic.retryCount = tx.retryCount;
+    diagnostic.failureReason = tx.failureReason;
+
+    const payload = {
+      action: tx.type === 'shift_start' ? 'reportShiftFailure' : 'reportTransactionFailure',
+      transactionId: tx.transactionId,
+      diagnosticData: JSON.stringify(diagnostic)
+    };
+    try {
+      const res = await fetch(CONFIG.SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
+      if (!res.ok) throw new Error('HTTP Error');
+      const data = await res.json();
+      if (data.status === 'success') {
+        showToast('Konum alınamadı. Sistem işlemi arka planda tamamladı.', 'warning');
+        this.removeFromQueue(tx.transactionId);
+      }
+    } catch (e) {
+      console.error('Failure report failed:', e);
+      // Rapor gidemezse kuyrukta kalsın, sonra tekrar dene
+    }
+  }
+
+  removeFromQueue(transactionId) {
+    this.queue = this.queue.filter(tx => tx.transactionId !== transactionId);
+    this.saveToStorage();
+  }
+}
 
 // ================= UI & TOAST =================
 function showToast(message, type = 'success') {
@@ -49,7 +334,7 @@ function showModal(title, message, type = 'info', cb = null) {
   document.getElementById('modalBtn').onclick = () => { modal.classList.add('hidden'); if (cb) cb(); };
 }
 
-// ================= PROGRESS / BİLDİRİM MODAL YÖNETİMİ (YENİ) =================
+// ================= PROGRESS / BİLDİRİM MODAL YÖNETİMİ =================
 function showDevriyeProgress(title, message, iconClass = 'fa-spinner fa-spin', color = 'var(--primary)') {
   const modal = document.getElementById('devriyeActionModal');
   document.getElementById('devriyeTitle').textContent = title;
@@ -102,6 +387,23 @@ function onLoginSuccess() {
   document.getElementById('mainScreen').classList.remove('hidden');
   document.getElementById('displayName').textContent = currentUser.name;
   document.getElementById('userInitial').textContent = currentUser.name.charAt(0).toUpperCase();
+  
+  // Servisleri başlat
+  locationManager = new LocationManager();
+  transactionQueue = new TransactionQueue();
+  locationManager.startWatching();
+  
+  // Sayfa görünürlüğü değiştiğinde kuyruğu işle
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && transactionQueue) {
+      transactionQueue.processQueue();
+    }
+  });
+  window.addEventListener('focus', () => {
+    if (transactionQueue) transactionQueue.processQueue();
+  });
+
+  // Eski sistemin diğer başlatıcıları
   initScanner();
   loadCurrentShiftFromServer();
   updateAttendanceUI();
@@ -113,6 +415,7 @@ function initNetworkListeners() {
   window.addEventListener('online', () => {
     document.getElementById('networkStatus').innerHTML = '🟢 Çevrimiçi';
     document.getElementById('networkStatus').style.color = '#2e7d32';
+    if (transactionQueue) transactionQueue.processQueue();
   });
   window.addEventListener('offline', () => {
     document.getElementById('networkStatus').innerHTML = '🔴 Çevrimdışı';
@@ -137,30 +440,29 @@ async function initScanner() {
     document.getElementById('scanResult').innerHTML = "❌ Kamera hatası. Tekrar deneyin.";
   }
 }
+
 function stopScanner() {
   if (html5QrCode && camState === 'scanning') { html5QrCode.stop().then(() => { camState = 'idle'; }).catch(()=>{}); }
 }
+
 document.getElementById('stopScanBtn').addEventListener('click', () => { stopScanner(); setTimeout(initScanner, 500); });
 
-// ================= QR OKUMA & YÖNLENDİRME =================
+// ================= QR OKUMA & YÖNLENDİRME (YENİ TRANSACTION AKIŞI) =================
 function onScanSuccess(decodedText) {
   if (camState === 'processing') return;
   if (navigator.vibrate) navigator.vibrate(100);
   playBeep();
   
-  // ZAMAN DAMGASI - Barkodun okutulduğu an (KRİTİK MADDE 3)
   const barcodeTimestamp = new Date();
   const cleanText = decodedText.trim().toUpperCase().replace(/İ/g, 'I');
   
   if (cleanText === 'MESAI') {
     camState = 'processing';
     document.getElementById('scanResult').innerHTML = "🟡 Mesai işlemi hazırlanıyor...";
-    // Mesai İşlem Modalını aç
     document.getElementById('shiftActionModal').classList.remove('hidden');
     document.getElementById('scanResult').innerHTML = "🟢 Kamera aktif, barkod okutun.";
     camState = 'scanning';
     
-    // Butonlara tıklama olaylarını geçici olarak bağla, barcodeTimestamp'i aktar
     const startBtn = document.getElementById('startShiftBtn');
     const endBtn = document.getElementById('endShiftBtn');
     
@@ -177,7 +479,6 @@ function onScanSuccess(decodedText) {
       startBtn.removeEventListener('click', newStartHandler);
     };
     
-    // Önceki dinleyicileri temizle (tekrarları önle)
     startBtn.replaceWith(startBtn.cloneNode(true));
     endBtn.replaceWith(endBtn.cloneNode(true));
     document.getElementById('startShiftBtn').addEventListener('click', newStartHandler);
@@ -185,19 +486,12 @@ function onScanSuccess(decodedText) {
     return;
   }
 
-  // Normal devriye (Zaman damgası ile)
+  // Normal devriye (Transaction Tabanlı, GPS Beklemez)
   camState = 'processing';
   document.getElementById('scanResult').innerHTML = "📍 Devriye kaydediliyor...";
-  if (navigator.geolocation) {
-    navigator.geolocation.getCurrentPosition(
-      pos => processPatrolScan(decodedText, pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy, barcodeTimestamp),
-      err => { showToast("GPS alınamadı. Devriye kaydı için GPS zorunludur.", "error"); resumeScanner(); },
-      { enableHighAccuracy: true, timeout: 8000 }
-    );
-  } else {
-    showToast("GPS desteği yok. İşlem iptal edildi.", "error");
-    resumeScanner();
-  }
+  
+  // İşlemi hemen sunucuya gönder, konum beklenmez
+  processPatrolScan(cleanText, barcodeTimestamp);
 }
 
 function playBeep() {
@@ -209,67 +503,83 @@ function playBeep() {
 
 function resumeScanner() {
   document.getElementById('scanResult').innerHTML = "🟢 Sonraki nokta bekleniyor...";
-  setTimeout(() => { camState = 'scanning'; }, 2000);
+  setTimeout(() => { camState = 'scanning'; }, 1500);
 }
 
-// ================= DEVRİYE KAYDI (PROFESYONEL POPUP İLE) =================
-async function processPatrolScan(qrText, lat, lng, accuracy, barcodeTimestamp) {
+// ================= DEVRİYE KAYDI (YENİ PROFESYONEL AKIŞ) =================
+async function processPatrolScan(qrText, barcodeTimestamp) {
   if (!navigator.onLine) {
-    showToast("İnternet bağlantısı yok. Devriye kaydedilemedi.", "error");
-    resumeScanner(); return;
+    showToast("İnternet bağlantısı yok. İşlem cihazda beklemede.", "warning");
+    // Offline durumda bile kuyruğa al
+    createTransactionLocally(qrText, barcodeTimestamp);
+    resumeScanner();
+    return;
   }
 
-  // Popup göster
-  showDevriyeProgress('Kayıt Oluşturuluyor', 'Lütfen bekleyiniz, veriler sunucuya iletilmektedir.', 'fa-spinner fa-spin', 'var(--primary)');
-
+  // İşlemi anında sunucuya gönder (createTransaction)
+  const transactionId = generateUUID();
   const payload = {
-    action: 'saveScan', 
-    qrText: qrText, 
-    lat: lat, 
-    lng: lng, 
-    accuracy: accuracy,
-    barcodeTimestamp: barcodeTimestamp.toISOString(), // Barkod anı gönderiliyor
-    email: currentUser.email, 
+    action: 'createTransaction',
+    transactionId: transactionId,
+    qrText: qrText,
+    barcodeTimestamp: barcodeTimestamp.toISOString(),
+    email: currentUser.email,
     name: currentUser.name
   };
 
   try {
     const res = await fetch(CONFIG.SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
-    // Bağlantı ve HTTP hatası kontrolü
     if (!res.ok) throw new Error('HTTP Error ' + res.status);
-    
     const data = await res.json();
     
     if (data.status === 'success') {
-      showDevriyeProgress('Kayıt Başarıyla Tamamlandı', 'Devriye noktası sisteme kaydedildi.', 'fa-circle-check', 'var(--success)');
-      setTimeout(() => {
-        hideDevriyeProgress();
-        showToast(`${qrText} başarıyla kaydedildi.`, 'success');
-        resumeScanner();
-      }, 1500);
+      // Kullanıcıya sadece başarılı olduğu bilgisi ver
+      showToast(`${qrText} başarıyla kaydedildi.`, 'success');
+      resumeScanner();
+      
+      // Kuyruğa ekle (Konum güncellemesi için)
+      transactionQueue.addTransaction({
+        transactionId: transactionId,
+        qrText: qrText,
+        type: 'patrol',
+        createdAt: Date.now(),
+        retryCount: 0,
+        isCompleted: false,
+        isFailed: false
+      });
     } else {
-      showDevriyeProgress('Kayıt Başarısız', data.message || 'Bilinmeyen bir hata oluştu.', 'fa-circle-xmark', 'var(--error)');
-      setTimeout(() => {
-        hideDevriyeProgress();
-        showToast(data.message || 'İşlem başarısız.', 'error');
-        resumeScanner();
-      }, 2000);
+      showToast(data.message || 'İşlem başarısız.', 'error');
+      resumeScanner();
     }
   } catch (error) {
     console.error('Devriye Kayıt Hatası:', error);
-    // SADECE gerçek ağ bağlantı hatalarında bu mesaj gösterilir
-    showDevriyeProgress('Bağlantı Hatası', 'Sunucuya ulaşılamadı. Lütfen internet bağlantınızı kontrol edin.', 'fa-circle-xmark', 'var(--error)');
-    setTimeout(() => {
-      hideDevriyeProgress();
-      showToast("Sunucu bağlantısı kurulamadı. Lütfen internet bağlantınızı kontrol edin.", "error");
-      resumeScanner();
-    }, 3000);
+    // Sunucuya gidemezse yerel kuyruğa al
+    createTransactionLocally(qrText, barcodeTimestamp);
+    showToast("Sunucu bağlantısı kurulamadı. İşlem beklemede.", "warning");
+    resumeScanner();
   }
+}
+
+// Yerel (Offline) işlem oluşturma
+function createTransactionLocally(qrText, barcodeTimestamp) {
+  const transactionId = generateUUID();
+  transactionQueue.addTransaction({
+    transactionId: transactionId,
+    qrText: qrText,
+    barcodeTimestamp: barcodeTimestamp.toISOString(),
+    email: currentUser.email,
+    name: currentUser.name,
+    type: 'patrol',
+    createdAt: Date.now(),
+    retryCount: 0,
+    isCompleted: false,
+    isFailed: false,
+    isOffline: true
+  });
 }
 
 // ================= MESAİ YÖNETİMİ (YENİ AKIŞ) =================
 
-// 1. Aktif Mesaiyi Sunucudan Çek
 async function loadCurrentShiftFromServer() {
   if (!currentUser) return;
   try {
@@ -289,105 +599,126 @@ async function loadCurrentShiftFromServer() {
   }
 }
 
-// 2. MESAİ BAŞLAT (GPS Bekleme Popup'ı ile)
 async function handleStartShift(barcodeTimestamp) {
-  if (!navigator.onLine) { showToast("İnternet bağlantısı yok.", "error"); return; }
+  if (!navigator.onLine) { 
+    showToast("İnternet yok. Mesai başlatma isteği kuyruğa alındı.", "warning");
+    createShiftTransactionLocally('start', barcodeTimestamp);
+    return; 
+  }
 
-  // GPS Bekleme Modalını Aç
-  showGpsLoading();
+  const transactionId = generateUUID();
+  const payload = {
+    action: 'createShiftTransaction',
+    transactionId: transactionId,
+    email: currentUser.email,
+    name: currentUser.name,
+    barcodeTimestamp: barcodeTimestamp.toISOString(),
+    userAgent: navigator.userAgent
+  };
 
-  navigator.geolocation.getCurrentPosition(
-    async (pos) => {
-      try {
-        hideGpsLoading(); // GPS alındı, modalı kapat
-        const res = await fetch(CONFIG.SCRIPT_URL, {
-          method: 'POST',
-          body: JSON.stringify({
-            action: 'startShift',
-            email: currentUser.email,
-            name: currentUser.name,
-            lat: pos.coords.latitude,
-            lng: pos.coords.longitude,
-            accuracy: pos.coords.accuracy,
-            barcodeTimestamp: barcodeTimestamp.toISOString(), // KRİTİK: Barkod anı gönder
-            userAgent: navigator.userAgent
-          })
-        });
-        if (!res.ok) throw new Error('HTTP Error ' + res.status);
-        const data = await res.json();
-        if (data.status === 'success') {
-          localStorage.setItem(CURRENT_SHIFT_KEY, JSON.stringify(data.shift));
-          twelveHourNotified = false;
-          updateAttendanceUI();
-          showToast("✅ Mesai başlatıldı! Görev başlangıcı.", "success");
-          sendNotification('Mesai Başladı', 'Çalışma süreniz başlatıldı.');
-        } else {
-          showToast(data.message, 'error');
-        }
-      } catch (error) {
-        hideGpsLoading();
-        showToast("Sunucu bağlantısı kurulamadı. Lütfen internet bağlantınızı kontrol edin.", "error");
-      }
-    },
-    (err) => {
-      hideGpsLoading();
-      showModal("GPS Konum Hatası", "Mesai başlatmak için GPS konumunuz alınamadı. Lütfen konum izinlerini kontrol edip tekrar deneyin.", "critical");
-    },
-    { enableHighAccuracy: true, timeout: 15000 }
-  );
+  try {
+    const res = await fetch(CONFIG.SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
+    if (!res.ok) throw new Error('HTTP Error ' + res.status);
+    const data = await res.json();
+    
+    if (data.status === 'success') {
+      twelveHourNotified = false;
+      updateAttendanceUI();
+      showToast("✅ Mesai başlatıldı! Görev başlangıcı.", "success");
+      sendNotification('Mesai Başladı', 'Çalışma süreniz başlatıldı.');
+      
+      // Kuyruğa ekle (Konum güncellemesi için)
+      transactionQueue.addTransaction({
+        transactionId: transactionId,
+        type: 'shift_start',
+        email: currentUser.email,
+        createdAt: Date.now(),
+        retryCount: 0,
+        isCompleted: false,
+        isFailed: false
+      });
+    } else {
+      showToast(data.message, 'error');
+    }
+  } catch (error) {
+    createShiftTransactionLocally('start', barcodeTimestamp);
+    showToast("Sunucu bağlantısı kurulamadı. İşlem beklemede.", "warning");
+  }
 }
 
-// 3. MESAİ BİTİR (Önce Onay Modali Açılır)
+function createShiftTransactionLocally(type, barcodeTimestamp) {
+  const transactionId = generateUUID();
+  transactionQueue.addTransaction({
+    transactionId: transactionId,
+    type: type === 'start' ? 'shift_start' : 'shift_end',
+    email: currentUser.email,
+    name: currentUser.name,
+    barcodeTimestamp: barcodeTimestamp.toISOString(),
+    userAgent: navigator.userAgent,
+    createdAt: Date.now(),
+    retryCount: 0,
+    isCompleted: false,
+    isFailed: false,
+    isOffline: true
+  });
+}
+
 document.getElementById('confirmEndYes').addEventListener('click', async () => {
   document.getElementById('confirmEndModal').classList.add('hidden');
-  if (!navigator.onLine) { showToast("İnternet bağlantısı yok.", "error"); return; }
+  if (!navigator.onLine) { 
+    showToast("İnternet yok. Mesai bitirme isteği kuyruğa alındı.", "warning");
+    createShiftTransactionLocally('end', new Date());
+    return; 
+  }
 
-  // GPS Bekleme Modalını Aç
-  showGpsLoading();
+  const transactionId = generateUUID();
+  const payload = {
+    action: 'endShift', // Mevcut endShift'i kullanıyoruz (GPS zorunlu)
+    email: currentUser.email,
+    barcodeTimestamp: new Date().toISOString(),
+    userAgent: navigator.userAgent
+  };
 
-  navigator.geolocation.getCurrentPosition(
-    async (pos) => {
-      try {
-        hideGpsLoading();
-        const res = await fetch(CONFIG.SCRIPT_URL, {
-          method: 'POST',
-          body: JSON.stringify({
-            action: 'endShift',
-            email: currentUser.email,
-            lat: pos.coords.latitude,
-            lng: pos.coords.longitude,
-            accuracy: pos.coords.accuracy,
-            barcodeTimestamp: new Date().toISOString(), // Bitirme anı (QR okutulduğu an)
-            userAgent: navigator.userAgent
-          })
-        });
-        if (!res.ok) throw new Error('HTTP Error ' + res.status);
-        const data = await res.json();
-        if (data.status === 'success') {
-          const endedShift = JSON.parse(localStorage.getItem(CURRENT_SHIFT_KEY));
-          endedShift.endTime = new Date().toISOString();
-          endedShift.durationSeconds = data.durationSeconds;
-          addToHistory(endedShift);
-          localStorage.removeItem(CURRENT_SHIFT_KEY);
-          twelveHourNotified = false;
-          updateAttendanceUI();
-          const durationStr = formatDurationHM(endedShift.durationSeconds);
-          showToast(`✅ Mesai tamamlandı! (${durationStr})`, "success");
-          sendNotification('Mesai Bitti', 'Çalışma süreniz başarıyla sonlandırıldı.');
-        } else {
-          showToast(data.message, 'error');
-        }
-      } catch (error) {
-        hideGpsLoading();
-        showToast("Sunucu bağlantısı kurulamadı. Lütfen internet bağlantınızı kontrol edin.", "error");
-      }
-    },
-    (err) => {
-      hideGpsLoading();
-      showModal("GPS Konum Hatası", "Mesai bitirmek için GPS konumunuz alınamadı. Lütfen konum izinlerini kontrol edip tekrar deneyin.", "critical");
-    },
-    { enableHighAccuracy: true, timeout: 15000 }
-  );
+  // Önce mevcut konumu dene
+  let loc = locationManager.getCachedLocation();
+  if (!loc) {
+    try {
+      loc = await locationManager.forceGetLocation();
+    } catch (err) {
+      // Konum alınamazsa işlemi kuyruğa al
+      showToast("Konum alınamadı. İşlem kuyruğa alındı, sistem konumu algıladığında tamamlayacak.", "warning");
+      createShiftTransactionLocally('end', new Date());
+      return;
+    }
+  }
+
+  if (loc) {
+    payload.lat = loc.lat;
+    payload.lng = loc.lng;
+    payload.accuracy = loc.accuracy;
+  }
+
+  try {
+    const res = await fetch(CONFIG.SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
+    if (!res.ok) throw new Error('HTTP Error ' + res.status);
+    const data = await res.json();
+    if (data.status === 'success') {
+      const endedShift = JSON.parse(localStorage.getItem(CURRENT_SHIFT_KEY));
+      endedShift.endTime = new Date().toISOString();
+      endedShift.durationSeconds = data.durationSeconds;
+      addToHistory(endedShift);
+      localStorage.removeItem(CURRENT_SHIFT_KEY);
+      twelveHourNotified = false;
+      updateAttendanceUI();
+      const durationStr = formatDurationHM(endedShift.durationSeconds);
+      showToast(`✅ Mesai tamamlandı! (${durationStr})`, "success");
+      sendNotification('Mesai Bitti', 'Çalışma süreniz başarıyla sonlandırıldı.');
+    } else {
+      showToast(data.message, 'error');
+    }
+  } catch (error) {
+    showToast("Sunucu bağlantısı kurulamadı. Lütfen internet bağlantınızı kontrol edin.", "error");
+  }
 });
 
 document.getElementById('confirmEndNo').addEventListener('click', () => {
@@ -416,7 +747,6 @@ function formatDuration(seconds) {
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
-// YENİ: Saat + Dakika formatı (Madde 6)
 function formatDurationHM(seconds) {
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
@@ -509,7 +839,7 @@ async function autoEndShiftFromFrontend() {
   }
 }
 
-// ================= RAPORLAMA (Yeni Alanlar Eklendi) =================
+// ================= RAPORLAMA =================
 async function showReport() {
   const modal = document.getElementById('reportModal');
   const content = document.getElementById('reportContent');
@@ -582,6 +912,7 @@ async function showReport() {
     }
   };
 }
+
 document.getElementById('reportCloseBtn').addEventListener('click', () => { document.getElementById('reportModal').classList.add('hidden'); });
 
 // ================= PUSH BİLDİRİM =================
@@ -590,16 +921,29 @@ function requestNotificationPermission() {
   if (Notification.permission === 'granted' || Notification.permission === 'denied') return;
   Notification.requestPermission();
 }
+
 function sendNotification(title, body) {
   if (!('Notification' in window) || Notification.permission !== 'granted') return;
   try { new Notification(title, { body, icon: 'logo.png' }); } catch(e) {}
+}
+
+// ================= YARDIMCI FONKSİYONLAR =================
+function generateUUID() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    var r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
 }
 
 // ================= ÇIKIŞ =================
 document.getElementById('logoutBtn').addEventListener('click', () => {
   showModal("Çıkış Yap", "Oturumu kapatmak istediğinize emin misiniz?", "warning", () => {
     stopScanner(); clearInterval(timerInterval);
+    if (locationManager) locationManager.stopWatching();
     localStorage.removeItem('karakus_user');
     location.reload();
   });
 });
+
+// Başlangıç listener
+initNetworkListeners();
