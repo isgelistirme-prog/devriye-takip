@@ -1,7 +1,3 @@
-/**
- * KARAKUŞ SW (Service Worker) - v9.0
- * Özellikler: Offline Cache, Background Sync, Network Fallback
- */
 const CACHE_NAME = 'Karakuş-v9';
 const ASSETS = [
   './',
@@ -13,15 +9,11 @@ const ASSETS = [
   'https://unpkg.com/html5-qrcode'
 ];
 
-// Install Event
 self.addEventListener('install', event => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => cache.addAll(ASSETS))
-  );
+  event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(ASSETS)));
   self.skipWaiting();
 });
 
-// Activate Event
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys().then(keys => {
@@ -31,7 +23,6 @@ self.addEventListener('activate', event => {
   self.clients.claim();
 });
 
-// Fetch Event (Cache First)
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
   event.respondWith(
@@ -44,27 +35,4 @@ self.addEventListener('fetch', event => {
       });
     })
   );
-});
-
-// Background Sync (Kuyruktaki işlemleri tetikleme)
-self.addEventListener('sync', event => {
-  if (event.tag === 'karakus-sync') {
-    event.waitUntil(
-      // Ana uygulamayı uyandır ve kuyruğu işlemesini sağla
-      self.clients.matchAll({ type: 'window' }).then(clients => {
-        clients.forEach(client => {
-          client.postMessage({ action: 'triggerQueueProcess' });
-        });
-      })
-    );
-  }
-});
-
-// Message Handler (App'ten gelen mesajları dinle)
-self.addEventListener('message', event => {
-  if (event.data && event.data.action === 'registerSync') {
-    self.registration.sync.register('karakus-sync')
-      .then(() => console.log('Background Sync registered'))
-      .catch(err => console.warn('Background Sync not supported:', err));
-  }
 });
