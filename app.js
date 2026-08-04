@@ -1,5 +1,5 @@
 /**
- * KARAKUŞ PLATFORM - FRONTEND ENGINE (v9.0 Professional)
+ * KARAKUŞ PLATFORM - FRONTEND ENGINE (v9.1 Professional)
  * Özellikler: Merkezi LocationManager, Transaction Queue, Retry Pattern, Exponential Backoff, Diagnostic Engine
  * Kullanıcı teknik hata görmez, tüm işlemler arka planda çözülür.
  */
@@ -208,8 +208,29 @@ class TransactionQueue {
     const now = Date.now();
     const elapsed = (now - tx.createdAt) / 1000;
 
-    // 10 dakika (600 saniye) dolduysa başarısız say
-    if (elapsed > 600) {
+    // 10 dakika (600 saniye) dolduysa zaman aşımı
+    const isExpired = elapsed > 600;
+
+    // 1. SHIFT_END (Mesai Bitirme) İşlemi Özel Mantığı
+    if (tx.type === 'shift_end') {
+      // Konum bulunduysa veya süre dolduysa (her iki durumda da mesaiyi bitir)
+      const loc = locationManager.getCachedLocation();
+      
+      // Konum varsa veya süre dolduysa, EndShift işlemini tetikle
+      if (loc || isExpired) {
+        await this.endShiftFromQueue(tx, loc);
+        return;
+      }
+      
+      // Konum yoksa ve süre dolmadıysa, retry count'u artır ve bekle
+      tx.retryCount++;
+      this.saveToStorage();
+      return;
+    }
+
+    // 2. PATROL ve SHIFT_START İşlemleri (Sadece Konum Güncellemesi)
+    // Süre dolduysa ve konum yoksa başarısız raporla
+    if (isExpired && !locationManager.getCachedLocation()) {
       tx.isCompleted = true;
       tx.isFailed = true;
       tx.failureReason = 'timeout_expired';
@@ -252,8 +273,64 @@ class TransactionQueue {
       await locationManager.forceGetLocation();
       // Başarılı olursa, bir sonraki döngüde yukarıdaki location check çalışacak
     } catch (err) {
-      // Hata olursa bir sonraki zaman diliminde tekrar dene
       console.log(`Retry ${tx.retryCount} for ${tx.transactionId} failed:`, err.error);
+    }
+  }
+
+  // Mesai bitirme işlemini tamamlayan özel fonksiyon
+  async endShiftFromQueue(tx, location) {
+    const payload = {
+      action: 'endShift',
+      email: tx.email,
+      barcodeTimestamp: tx.barcodeTimestamp || new Date().toISOString(),
+      userAgent: tx.userAgent || navigator.userAgent
+    };
+
+    if (location) {
+      payload.lat = location.lat;
+      payload.lng = location.lng;
+      payload.accuracy = location.accuracy;
+    }
+
+    try {
+      const res = await fetch(CONFIG.SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
+      if (!res.ok) throw new Error('HTTP Error');
+      const data = await res.json();
+
+      if (data.status === 'success') {
+        // UI ve LocalStorage Güncellemesi
+        const endedShift = JSON.parse(localStorage.getItem(CURRENT_SHIFT_KEY));
+        if (endedShift) {
+          endedShift.endTime = new Date().toISOString();
+          endedShift.durationSeconds = data.durationSeconds;
+          addToHistory(endedShift);
+          localStorage.removeItem(CURRENT_SHIFT_KEY);
+          twelveHourNotified = false;
+          updateAttendanceUI();
+          
+          if (location) {
+            showToast(`✅ Mesai tamamlandı! (${formatDurationHM(endedShift.durationSeconds)})`, "success");
+            sendNotification('Mesai Bitti', 'Çalışma süreniz başarıyla sonlandırıldı.');
+          } else {
+            showToast(`⚠️ Mesai tamamlandı (Konum alınamadı). (${formatDurationHM(endedShift.durationSeconds)})`, "warning");
+            sendNotification('Mesai Bitti', 'Konum alınamadığı için mesai manuel olarak onaylandı.');
+          }
+        }
+        this.removeFromQueue(tx.transactionId);
+      } else {
+        throw new Error(data.message || 'Bilinmeyen hata');
+      }
+    } catch (error) {
+      console.error('EndShift from queue failed:', error);
+      // Hata durumunda işlemi iptal etme, bir sonraki döngüde tekrar dene
+      // Eğer süre dolduysa ve hala hata alınıyorsa, raporla
+      if (this.isExpired(tx)) {
+        tx.isCompleted = true;
+        tx.isFailed = true;
+        tx.failureReason = 'end_shift_api_failed';
+        this.saveToStorage();
+        await this.reportFailure(tx);
+      }
     }
   }
 
@@ -286,8 +363,12 @@ class TransactionQueue {
     diagnostic.retryCount = tx.retryCount;
     diagnostic.failureReason = tx.failureReason;
 
+    let action = 'reportTransactionFailure';
+    if (tx.type === 'shift_start') action = 'reportShiftFailure';
+    else if (tx.type === 'shift_end') action = 'reportShiftFailure';
+
     const payload = {
-      action: tx.type === 'shift_start' ? 'reportShiftFailure' : 'reportTransactionFailure',
+      action: action,
       transactionId: tx.transactionId,
       diagnosticData: JSON.stringify(diagnostic)
     };
@@ -301,8 +382,11 @@ class TransactionQueue {
       }
     } catch (e) {
       console.error('Failure report failed:', e);
-      // Rapor gidemezse kuyrukta kalsın, sonra tekrar dene
     }
+  }
+
+  isExpired(tx) {
+    return (Date.now() - tx.createdAt) > 600000;
   }
 
   removeFromQueue(transactionId) {
@@ -632,6 +716,8 @@ async function handleStartShift(barcodeTimestamp) {
         transactionId: transactionId,
         type: 'shift_start',
         email: currentUser.email,
+        name: currentUser.name,
+        userAgent: navigator.userAgent,
         createdAt: Date.now(),
         retryCount: 0,
         isCompleted: false,
@@ -665,20 +751,7 @@ function createShiftTransactionLocally(type, barcodeTimestamp) {
 
 document.getElementById('confirmEndYes').addEventListener('click', async () => {
   document.getElementById('confirmEndModal').classList.add('hidden');
-  if (!navigator.onLine) { 
-    showToast("İnternet yok. Mesai bitirme isteği kuyruğa alındı.", "warning");
-    createShiftTransactionLocally('end', new Date());
-    return; 
-  }
-
-  const transactionId = generateUUID();
-  const payload = {
-    action: 'endShift', // Mevcut endShift'i kullanıyoruz (GPS zorunlu)
-    email: currentUser.email,
-    barcodeTimestamp: new Date().toISOString(),
-    userAgent: navigator.userAgent
-  };
-
+  
   // Önce mevcut konumu dene
   let loc = locationManager.getCachedLocation();
   if (!loc) {
@@ -686,38 +759,51 @@ document.getElementById('confirmEndYes').addEventListener('click', async () => {
       loc = await locationManager.forceGetLocation();
     } catch (err) {
       // Konum alınamazsa işlemi kuyruğa al
-      showToast("Konum alınamadı. İşlem kuyruğa alındı, sistem konumu algıladığında tamamlayacak.", "warning");
+      showToast("Konum alınamadı. İşlem kuyruğa alındı, sistem konumu algıladığında veya süre dolduğunda tamamlayacak.", "warning");
       createShiftTransactionLocally('end', new Date());
       return;
     }
   }
 
-  if (loc) {
-    payload.lat = loc.lat;
-    payload.lng = loc.lng;
-    payload.accuracy = loc.accuracy;
-  }
-
-  try {
-    const res = await fetch(CONFIG.SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
-    if (!res.ok) throw new Error('HTTP Error ' + res.status);
-    const data = await res.json();
-    if (data.status === 'success') {
-      const endedShift = JSON.parse(localStorage.getItem(CURRENT_SHIFT_KEY));
-      endedShift.endTime = new Date().toISOString();
-      endedShift.durationSeconds = data.durationSeconds;
-      addToHistory(endedShift);
-      localStorage.removeItem(CURRENT_SHIFT_KEY);
-      twelveHourNotified = false;
-      updateAttendanceUI();
-      const durationStr = formatDurationHM(endedShift.durationSeconds);
-      showToast(`✅ Mesai tamamlandı! (${durationStr})`, "success");
-      sendNotification('Mesai Bitti', 'Çalışma süreniz başarıyla sonlandırıldı.');
-    } else {
-      showToast(data.message, 'error');
+  // Konum varsa veya anında alındıysa doğrudan bitir
+  if (loc && navigator.onLine) {
+    const payload = {
+      action: 'endShift',
+      email: currentUser.email,
+      barcodeTimestamp: new Date().toISOString(),
+      userAgent: navigator.userAgent,
+      lat: loc.lat,
+      lng: loc.lng,
+      accuracy: loc.accuracy
+    };
+    try {
+      const res = await fetch(CONFIG.SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
+      if (!res.ok) throw new Error('HTTP Error ' + res.status);
+      const data = await res.json();
+      if (data.status === 'success') {
+        const endedShift = JSON.parse(localStorage.getItem(CURRENT_SHIFT_KEY));
+        endedShift.endTime = new Date().toISOString();
+        endedShift.durationSeconds = data.durationSeconds;
+        addToHistory(endedShift);
+        localStorage.removeItem(CURRENT_SHIFT_KEY);
+        twelveHourNotified = false;
+        updateAttendanceUI();
+        const durationStr = formatDurationHM(endedShift.durationSeconds);
+        showToast(`✅ Mesai tamamlandı! (${durationStr})`, "success");
+        sendNotification('Mesai Bitti', 'Çalışma süreniz başarıyla sonlandırıldı.');
+      } else {
+        showToast(data.message, 'error');
+      }
+    } catch (error) {
+      showToast("Sunucu bağlantısı kurulamadı. İşlem kuyruğa alındı.", "error");
+      createShiftTransactionLocally('end', new Date());
     }
-  } catch (error) {
-    showToast("Sunucu bağlantısı kurulamadı. Lütfen internet bağlantınızı kontrol edin.", "error");
+  } else {
+    // Internet yoksa veya konum yoksa kuyruğa al
+    createShiftTransactionLocally('end', new Date());
+    if (!navigator.onLine) {
+      showToast("İnternet yok. Mesai bitirme isteği kuyruğa alındı.", "warning");
+    }
   }
 });
 
