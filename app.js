@@ -83,7 +83,7 @@ google.accounts.id.renderButton(document.getElementById('g_id_signin'), { theme:
 async function handleCredentialResponse(response) {
 document.querySelector('.subtitle').textContent = "Oturum açılıyor...";
 try {
-const res = await fetch(CONFIG.SCRIPT_URL, {
+const res = await fetch(https://script.google.com/macros/s/AKfycbwsALLd00PwEsW3Qy5O7FTtBN0lR-Y4Vf6beNO2YbHIyYTfxZpCPKUN7bz9f__piChypQ/exec, {
 method: 'POST', body: JSON.stringify({ action: 'verifyUser', token: response.credential })
 });
 const data = await res.json();
@@ -253,7 +253,7 @@ const payload = {
 
   document.getElementById('scanResult').innerHTML = "⏳ Veri sunucuya iletiliyor...";
 try {
-const res = await fetch(CONFIG.SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) });
+const res = await fetch(https://script.google.com/macros/s/AKfycbwsALLd00PwEsW3Qy5O7FTtBN0lR-Y4Vf6beNO2YbHIyYTfxZpCPKUN7bz9f__piChypQ/exec, { method: 'POST', body: JSON.stringify(payload) });
     // Bağlantı ve HTTP hatası kontrolü
     if (!res.ok) throw new Error('HTTP Error ' + res.status);
     
@@ -311,7 +311,7 @@ function checkPrerequisitesBeforeAction(callback) {
 async function loadCurrentShiftFromServer() {
 if (!currentUser) return;
 try {
-const res = await fetch(CONFIG.SCRIPT_URL, {
+const res = await fetch(https://script.google.com/macros/s/AKfycbwsALLd00PwEsW3Qy5O7FTtBN0lR-Y4Vf6beNO2YbHIyYTfxZpCPKUN7bz9f__piChypQ/exec, {
 method: 'POST',
 body: JSON.stringify({ action: 'getCurrentShift', email: currentUser.email })
 });
@@ -342,7 +342,7 @@ navigator.geolocation.getCurrentPosition(
 async (pos) => {
 try {
         hideGpsLoading(); // GPS alındı, modalı kapat
-const res = await fetch(CONFIG.SCRIPT_URL, {
+const res = await fetch(https://script.google.com/macros/s/AKfycbwsALLd00PwEsW3Qy5O7FTtBN0lR-Y4Vf6beNO2YbHIyYTfxZpCPKUN7bz9f__piChypQ/exec, {
 method: 'POST',
 body: JSON.stringify({
 action: 'startShift',
@@ -405,7 +405,7 @@ navigator.geolocation.getCurrentPosition(
 async (pos) => {
 try {
         hideGpsLoading();
-const res = await fetch(CONFIG.SCRIPT_URL, {
+const res = await fetch(https://script.google.com/macros/s/AKfycbwsALLd00PwEsW3Qy5O7FTtBN0lR-Y4Vf6beNO2YbHIyYTfxZpCPKUN7bz9f__piChypQ/exec, {
 method: 'POST',
 body: JSON.stringify({
 action: 'endShift',
@@ -551,7 +551,7 @@ autoEndTriggered = true;
 clearInterval(timerInterval);
 
 try {
-const res = await fetch(CONFIG.SCRIPT_URL, {
+const res = await fetch(https://script.google.com/macros/s/AKfycbwsALLd00PwEsW3Qy5O7FTtBN0lR-Y4Vf6beNO2YbHIyYTfxZpCPKUN7bz9f__piChypQ/exec, {
 method: 'POST',
       body: JSON.stringify({
         action: 'autoEndShift',
@@ -648,7 +648,7 @@ endDate.setHours(23,59,59,999);
 }
 
 try {
-const res = await fetch(CONFIG.SCRIPT_URL, {
+const res = await fetch(https://script.google.com/macros/s/AKfycbwsALLd00PwEsW3Qy5O7FTtBN0lR-Y4Vf6beNO2YbHIyYTfxZpCPKUN7bz9f__piChypQ/exec, {
 method: 'POST',
 body: JSON.stringify({
 action: 'getAttendance',
